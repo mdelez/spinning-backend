@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: spinning-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: mikedev
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: spinning
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "5432:5432"
+    volumes:
+      - spinning_data:/var/lib/postgresql/data
+
+volumes:
+  spinning_data:

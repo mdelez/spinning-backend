@@ -1,0 +1,64 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  firstName String
+  lastName  String
+  dateOfBirth DateTime
+  shoeSize  Int
+  instructor Boolean   @default(false)
+  admin     Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  Bookings  Booking[]
+}
+
+model Studio {
+  id           String         @id @default(uuid())
+  studioNumber Int            @unique
+  name         String
+  bikes        Bike[]
+  Sessions     Session[]
+}
+
+model Bike {
+  id         String    @id @default(uuid())
+  studioId   String
+  bikeNumber Int
+  Studio     Studio    @relation(fields: [studioId], references: [id])
+  Bookings   Booking[]
+
+  @@unique([studioId, bikeNumber])
+}
+
+model Session {
+  id       String    @id @default(uuid())
+  studioId String
+  startAt  DateTime
+  endAt    DateTime
+  Bookings Booking[]
+  Studio   Studio    @relation(fields: [studioId], references: [id])
+}
+
+model Booking {
+  id             String   @id @default(uuid())
+  userId         String
+  sessionId      String
+  bikeId         String
+  status         String
+  paid           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  User         User         @relation(fields: [userId], references: [id])
+  Session      Session      @relation(fields: [sessionId], references: [id])
+  Bike         Bike         @relation(fields: [bikeId], references: [id])
+
+  @@unique([sessionId, bikeId])
+}
