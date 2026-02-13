@@ -8,21 +8,21 @@ generator client {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  firstName String
-  lastName  String
+  id          String    @id @default(uuid())
+  email       String    @unique
+  firstName   String
+  lastName    String
   dateOfBirth DateTime
-  shoeSize  Int
-  instructor Boolean   @default(false)
-  admin     Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  Bookings  Booking[]
+  shoeSize    Int
+  instructor  Boolean   @default(false)
+  admin       Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  Bookings    Booking[]
 }
 
 model Studio {
-  id           String         @id @default(uuid())
-  studioNumber Int            @unique
+  id           String    @id @default(uuid())
+  studioNumber Int       @unique
   name         String
   bikes        Bike[]
   Sessions     Session[]
@@ -48,17 +48,17 @@ model Session {
 }
 
 model Booking {
-  id             String   @id @default(uuid())
-  userId         String
-  sessionId      String
-  bikeId         String
-  status         String
-  paid           Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String
+  sessionId String
+  bikeId    String
+  status    String
+  paid      Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  User         User         @relation(fields: [userId], references: [id])
-  Session      Session      @relation(fields: [sessionId], references: [id])
-  Bike         Bike         @relation(fields: [bikeId], references: [id])
+  User    User    @relation(fields: [userId], references: [id])
+  Session Session @relation(fields: [sessionId], references: [id])
+  Bike    Bike    @relation(fields: [bikeId], references: [id])
 
   @@unique([sessionId, bikeId])
 }
