@@ -8,43 +8,52 @@ generator client {
 }
 
 model User {
-  id          String    @id @default(uuid())
-  email       String    @unique
+  id          String   @id @default(uuid())
+  email       String   @unique
   firstName   String
   lastName    String
   dateOfBirth DateTime
   shoeSize    Int
-  instructor  Boolean   @default(false)
-  admin       Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  Bookings    Booking[]
+  instructor  Boolean  @default(false)
+  admin       Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  bookings Booking[]
+  sessions Session[]
 }
 
 model Studio {
-  id           String    @id @default(uuid())
-  studioNumber Int       @unique
+  id           String @id @default(uuid())
+  studioNumber Int    @unique
   name         String
-  bikes        Bike[]
-  Sessions     Session[]
+
+  bikes    Bike[]
+  sessions Session[]
 }
 
 model Bike {
-  id         String    @id @default(uuid())
+  id         String @id @default(uuid())
   studioId   String
   bikeNumber Int
-  Studio     Studio    @relation(fields: [studioId], references: [id])
-  Bookings   Booking[]
+
+  studio   Studio    @relation(fields: [studioId], references: [id])
+  bookings Booking[]
 
   @@unique([studioId, bikeNumber])
 }
 
 model Session {
-  id       String    @id @default(uuid())
-  studioId String
-  startAt  DateTime
-  endAt    DateTime
-  Bookings Booking[]
-  Studio   Studio    @relation(fields: [studioId], references: [id])
+  id           String   @id @default(uuid())
+  instructorId String   @map("userId")
+  studioId     String
+  startAt      DateTime
+  endAt        DateTime
+  name         String
+  description  String
+
+  instructor User      @relation(fields: [instructorId], references: [id])
+  bookings   Booking[]
+  studio     Studio    @relation(fields: [studioId], references: [id])
 }
 
 model Booking {
@@ -56,9 +65,9 @@ model Booking {
   paid      Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  User    User    @relation(fields: [userId], references: [id])
-  Session Session @relation(fields: [sessionId], references: [id])
-  Bike    Bike    @relation(fields: [bikeId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  session Session @relation(fields: [sessionId], references: [id])
+  bike    Bike    @relation(fields: [bikeId], references: [id])
 
   @@unique([sessionId, bikeId])
 }

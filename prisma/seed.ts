@@ -1,5 +1,4 @@
 // prisma/seed.ts
-
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -20,7 +19,7 @@ async function main() {
       email: "bettina@example.com",
       firstName: "Bettina",
       lastName: "Tetz",
-      dateOfBirth: new Date("1985-05-15"),
+      dateOfBirth: new Date("1990-05-17"),
       shoeSize: 38,
       instructor: true,
       admin: true,
@@ -36,10 +35,17 @@ async function main() {
     },
   ];
 
+  // create users and capture them
+  const createdUsers: Record<string, typeof users[0] & { id: string }> = {};
+
   for (const u of users) {
-    await prisma.user.create({ data: u });
+    const user = await prisma.user.create({ data: u });
+    createdUsers[u.firstName.toLowerCase()] = user; // store by firstName
   }
+
   console.log("✅ Users created");
+
+  const bettinaId = createdUsers['bettina'].id;
 
   // ----- STUDIOS -----
   const studio1 = await prisma.studio.create({
@@ -66,33 +72,32 @@ async function main() {
   console.log("✅ Bikes created");
 
   // ----- SESSIONS -----
-  // Example: 5 sessions per studio, 1 hour apart starting tomorrow
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(9, 0, 0, 0); // 9:00 AM
+  const session1Start = new Date(2026, 7, 5, 19);
+  const session1End = new Date(2026, 7, 5, 19, 50);
+  const session2Start = new Date(2026, 7, 6, 18);
+  const session2End = new Date(2026, 7, 6, 18, 50);
 
-  const sessionDurationMs = 60 * 60 * 1000; // 1 hour
+  await prisma.session.create({
+    data: {
+      studioId: studio1.id,
+      startAt: session1Start,
+      endAt: session1End,
+      instructorId: bettinaId,
+      name: '90s ride',
+      description: 'best ride of your life'
+    },
+  });
 
-  for (let s = 0; s < 5; s++) {
-    const start = new Date(tomorrow.getTime() + s * sessionDurationMs);
-    const end = new Date(start.getTime() + sessionDurationMs);
-
-    await prisma.session.create({
-      data: {
-        studioId: studio1.id,
-        startAt: start,
-        endAt: end,
-      },
-    });
-
-    await prisma.session.create({
-      data: {
-        studioId: studio2.id,
-        startAt: start,
-        endAt: end,
-      },
-    });
-  }
+  await prisma.session.create({
+    data: {
+      studioId: studio2.id,
+      startAt: session2Start,
+      endAt: session2End,
+      instructorId: bettinaId,
+      name: '80s ride',
+      description: 'ride or die'
+    },
+  });
 
   console.log("✅ Sessions created");
 }
@@ -100,6 +105,8 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e);
+    // fuck this figure it out later
+    // eslint-disable-next-line no-undef
     process.exit(1);
   })
   .finally(async () => {
