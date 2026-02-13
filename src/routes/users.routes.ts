@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { prisma } from "../prisma.js"; // your Prisma client
+import { prisma } from "../prisma.js";
 
 const router = Router();
 
@@ -11,6 +11,22 @@ router.get("/users", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+// GET /users/:id
+router.get("/users/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (user) {
+      res.json(user);
+    } else {
+      res.status(404).json({ error: "User not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch user" });
   }
 });
 
