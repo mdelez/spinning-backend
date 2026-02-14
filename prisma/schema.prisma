@@ -7,6 +7,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum Role {
+  USER
+  INSTRUCTOR
+  ADMIN
+}
+
 model User {
   id          String   @id @default(uuid())
   email       String   @unique
@@ -14,8 +20,7 @@ model User {
   lastName    String
   dateOfBirth DateTime
   shoeSize    Int
-  instructor  Boolean  @default(false)
-  admin       Boolean  @default(false)
+  role        Role     @default(USER)
   createdAt   DateTime @default(now())
 
   bookings Booking[]
