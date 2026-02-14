@@ -57,13 +57,16 @@ model Session {
 }
 
 model Booking {
-  id        String   @id @default(uuid())
-  userId    String
-  sessionId String
-  bikeId    String
-  status    String
-  paid      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id                 String   @id @default(uuid())
+  userId             String
+  sessionId          String
+  bikeId             String
+  friendEmail        String?
+  friendName         String?
+  friendShoeSize     Int?
+  friendWaiverSigned Boolean?
+  paid               Boolean  @default(false)
+  createdAt          DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id])
   session Session @relation(fields: [sessionId], references: [id])
