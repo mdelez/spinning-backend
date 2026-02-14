@@ -5,9 +5,7 @@ export const createUserSchema = z.object({
     firstName: z.string().min(1),
     lastName: z.string().min(1),
     shoeSize: z.int(),
-    dateOfBirth: z.coerce.date(),
-    instructor: z.boolean(),
-    admin: z.boolean()
+    dateOfBirth: z.coerce.date()
 });
 
 export const updateUserSchema = z.object({

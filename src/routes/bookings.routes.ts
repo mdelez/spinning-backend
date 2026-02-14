@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../prisma.js";
 import { Prisma } from "@prisma/client";
-import { createBookingSchema, updateBookingSchema, upgradeBookingSchema } from "../zod/schemas/booking.schema.js";
+import { createBookingSchema, updateBookingSchema, addFriendBookingSchema } from "../zod/schemas/booking.schema.js";
 
 const router = Router();
 
@@ -157,7 +157,6 @@ router.post("/bookings", async (req, res) => {
     }
 });
 
-// TODO: check if this is ready
 // PATCH /bookings/:id - update booking
 router.patch("/bookings/:id", async (req, res) => {
     const { id } = req.params;
@@ -183,8 +182,8 @@ router.patch("/bookings/:id", async (req, res) => {
     }
 });
 
-// POST /bookings/upgrade - add a friend to an existing booking
-router.post("/bookings/upgrade", async (req, res) => {
+// POST /bookings/add-friend
+router.post("/bookings/add-friend", async (req, res) => {
     try {
         // parse and validate input
         const {
@@ -193,7 +192,7 @@ router.post("/bookings/upgrade", async (req, res) => {
             friendBikeId,
             friendEmail,
             friendName
-        } = upgradeBookingSchema.parse(req.body);
+        } = addFriendBookingSchema.parse(req.body);
 
         // count existing bookings for this user/session
         const existingBookings = await prisma.booking.findMany({
@@ -202,13 +201,13 @@ router.post("/bookings/upgrade", async (req, res) => {
 
         if (existingBookings.length === 0) {
             return res.status(400).json({
-                error: "No existing booking found to upgrade",
+                error: "No existing booking found to add friend to",
             });
         }
 
         if (existingBookings.length >= 2) {
             return res.status(400).json({
-                error: "Cannot upgrade: user already has max 2 bookings",
+                error: "Cannot add friend: user already has max 2 bookings",
             });
         }
 
@@ -239,8 +238,28 @@ router.post("/bookings/upgrade", async (req, res) => {
 
         console.error(error);
         return res.status(400).json({
-            error: "Could not upgrade booking",
+            error: "Could not add friend to booking",
         });
+    }
+});
+
+// TODO: can a friend's booking be deleted without also deleting the user's booking?
+// DELETE /bookings/:id
+router.delete("/bookings/:id", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        await prisma.booking.delete({ where: { id } });
+        res.status(204).send(); // no content
+    } catch (error) {
+        if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2025"
+        ) {
+            return res.status(404).json({ error: "Booking not found" });
+        }
+        console.error(error);
+        res.status(500).json({ error: "Failed to delete booking" });
     }
 });
 

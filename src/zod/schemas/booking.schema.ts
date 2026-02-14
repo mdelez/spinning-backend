@@ -37,7 +37,7 @@ export const updateBookingSchema = z.object({
     friendWaiverSigned: z.boolean().optional()
 })
 
-export const upgradeBookingSchema = z.object({
+export const addFriendBookingSchema = z.object({
     userId: z.string(),
     sessionId: z.string(),
     friendBikeId: z.string(),
