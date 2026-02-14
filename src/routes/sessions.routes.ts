@@ -10,9 +10,15 @@ router.get("/sessions", async (_req, res) => {
     try {
         const sessions = await prisma.session.findMany({
             include: {
-                instructor: true,
+                instructor: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                    }
+                },
                 studio: true,
-                bookings: true,
+                // bookings: true,
             },
         });
         res.json(sessions);
@@ -29,9 +35,15 @@ router.get("/sessions/:id", async (req, res) => {
         const session = await prisma.session.findUnique({
             where: { id },
             include: {
-                instructor: true,
+                instructor: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                    }
+                },
                 studio: true,
-                bookings: true,
+                // bookings: true,
             },
         });
         if (session) {
@@ -42,6 +54,35 @@ router.get("/sessions/:id", async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to fetch session" });
+    }
+});
+
+// GET /sessions/:id/bookings - get all bookings for single session
+router.get("/sessions/:id/bookings", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const bookings = await prisma.booking.findMany({
+            where: {
+                sessionId: id,
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        shoeSize: true
+                    }
+                },
+            },
+        });
+
+        res.json(bookings);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch bookings" });
     }
 });
 
