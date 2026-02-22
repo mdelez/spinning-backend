@@ -86,6 +86,30 @@ router.get("/sessions/:id/bookings", async (req, res) => {
     }
 });
 
+// GET /sessions/:id/available-bikes
+router.get("/sessions/:id/available-bikes", async (req, res) => {
+    const { id } = req.params;
+
+    // Find the session and its studio
+    const session = await prisma.session.findUnique({
+        where: { id },
+        include: { bookings: true },
+    });
+
+    if (!session) return res.status(404).json({ error: "Session not found" });
+
+    // Get all bikes in this studio
+    const allBikes = await prisma.bike.findMany({
+        where: { studioId: session.studioId },
+    });
+
+    // Remove bikes that are already booked
+    const bookedBikeIds = session.bookings.map(b => b.bikeId);
+    const availableBikes = allBikes.filter(bike => !bookedBikeIds.includes(bike.id));
+
+    res.json(availableBikes);
+});
+
 // POST /sessions - create session
 router.post("/sessions", async (req, res) => {
     try {
