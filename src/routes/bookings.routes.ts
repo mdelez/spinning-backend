@@ -5,10 +5,15 @@ import { createBookingSchema, updateBookingSchema, addFriendBookingSchema } from
 
 const router = Router();
 
-// GET /bookings - all bookings
+// GET /bookings?userId=[uuid]
 router.get("/bookings", async (req, res) => {
+    const { userId } = req.query;
+
     try {
         const bookings = await prisma.booking.findMany({
+            where: userId
+                ? { userId: userId as string }
+                : undefined, // no filter -> return all
             include: {
                 user: {
                     select: {
@@ -16,17 +21,32 @@ router.get("/bookings", async (req, res) => {
                         firstName: true,
                         lastName: true,
                         email: true,
-                        shoeSize: true
-                    }
+                        shoeSize: true,
+                    },
                 },
-                session: true,
-                bike: true
-            }
-        })
+                session: {
+                    include: {
+                        studio: true,
+                        instructor: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                            },
+                        },
+                    },
+                },
+                bike: true,
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+        });
+
         res.json(bookings);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Failed to fetch bookings" })
+        res.status(500).json({ error: "Failed to fetch bookings" });
     }
 });
 
