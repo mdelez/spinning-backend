@@ -39,7 +39,9 @@ router.get("/bookings", async (req, res) => {
                 bike: true,
             },
             orderBy: {
-                createdAt: "desc",
+                session: {
+                    startAt: "asc"
+                }
             },
         });
 
