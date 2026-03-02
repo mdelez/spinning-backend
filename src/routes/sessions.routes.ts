@@ -122,6 +122,9 @@ router.post("/sessions", async (req, res) => {
 
         const newSession = await prisma.session.create({
             data: parsedBody,
+            include: {
+                instructor: true
+            }
         });
 
         res.status(201).json(newSession);
