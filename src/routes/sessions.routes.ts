@@ -5,22 +5,27 @@ import { createSessionSchema, updateSessionSchema } from "../zod/schemas/session
 
 const router = Router();
 
-// GET /sessions - all sessions
-router.get("/sessions", async (_req, res) => {
+// GET /sessions?instructorId=[uuid]
+router.get("/sessions", async (req, res) => {
     try {
+        const { instructorId } = req.query;
+
         const sessions = await prisma.session.findMany({
+            where: instructorId
+                ? { instructorId: String(instructorId) }
+                : undefined,
             include: {
                 instructor: {
                     select: {
                         id: true,
                         firstName: true,
                         lastName: true,
-                    }
+                    },
                 },
                 studio: true,
-                // bookings: true,
             },
         });
+
         res.json(sessions);
     } catch (error) {
         console.error(error);
@@ -142,9 +147,12 @@ router.patch("/sessions/:id", async (req, res) => {
         const updatedSession = await prisma.session.update({
             where: { id },
             data: parsedBody,
+            include: {
+                instructor: true
+            }
         });
 
-        res.json(updatedSession);
+        res.status(201).json(updatedSession);
     } catch (error) {
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
