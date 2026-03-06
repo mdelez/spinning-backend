@@ -7,6 +7,7 @@ const UUIDs = {
   users: {
     mike: "7c9a1e4f-5e1d-4b6a-b6e4-9c2c3f8a1111",
     bettina: "9f4b2d73-8c6e-4c1f-9b5a-2a7d8e4f2222",
+    jerry: "97300dee-fd8d-455a-adad-2d6d323edfad",
     bob: "3a8d5f62-1e4c-4c9d-a7b1-6f3e9d5c3333",
   },
   studios: {
@@ -14,6 +15,9 @@ const UUIDs = {
     oerlikon: "6a3f9b28-4e1c-4d7b-b9c2-5e6f7a8b5555",
   },
   sessions: {
+    normal: "3a4d1734-04ba-4065-8697-51d8325c0666",
+    intro: "cc15f3bb-d984-4ae0-b73c-afe2e743569c",
+    event: "e6278218-5cb0-4b27-9d63-933f51b5343b",
     ride90s: "5b8e1c7a-2d4f-4c9b-a6e3-8d7f1a2b6666",
     ride80s: "8e2c6d4f-7a1b-4c5d-b9f3-2d6a7c8e7777",
   },
@@ -106,6 +110,20 @@ async function main() {
   });
 
   await prisma.user.upsert({
+    where: { id: UUIDs.users.jerry },
+    update: {},
+    create: {
+      id: UUIDs.users.jerry,
+      email: "jerry@example.com",
+      firstName: "Jerry",
+      lastName: "Kerry",
+      dateOfBirth: new Date("1980-08-14"),
+      shoeSize: 43,
+      role: 'INSTRUCTOR'
+    },
+  });
+
+  await prisma.user.upsert({
     where: { id: UUIDs.users.bob },
     update: {},
     create: {
@@ -171,16 +189,60 @@ async function main() {
 
   // ----- SESSIONS -----
   await prisma.session.upsert({
+    where: { id: UUIDs.sessions.normal },
+    update: {},
+    create: {
+      id: UUIDs.sessions.normal,
+      studioId: UUIDs.studios.basel,
+      instructorId: UUIDs.users.bettina,
+      startAt: new Date(2026, 7, 9, 19),
+      endAt: new Date(2026, 7, 9, 19, 50),
+      rideType: "NORMAL",
+      tokenPrice: 1.0
+    },
+  });
+
+  await prisma.session.upsert({
+    where: { id: UUIDs.sessions.intro },
+    update: {},
+    create: {
+      id: UUIDs.sessions.intro,
+      studioId: UUIDs.studios.oerlikon,
+      instructorId: UUIDs.users.jerry,
+      startAt: new Date(2026, 7, 6, 20),
+      endAt: new Date(2026, 7, 6, 20, 50),
+      rideType: "INTRO",
+      tokenPrice: 1.0,
+    },
+  });
+
+  await prisma.session.upsert({
+    where: { id: UUIDs.sessions.event },
+    update: {},
+    create: {
+      id: UUIDs.sessions.event,
+      studioId: UUIDs.studios.basel,
+      instructorId: UUIDs.users.bettina,
+      startAt: new Date(2026, 9, 6, 19),
+      endAt: new Date(2026, 9, 6, 19, 50),
+      rideType: "EVENT",
+      tokenPrice: 2.0
+    },
+  });
+
+  await prisma.session.upsert({
     where: { id: UUIDs.sessions.ride90s },
     update: {},
     create: {
       id: UUIDs.sessions.ride90s,
       studioId: UUIDs.studios.basel,
-      instructorId: UUIDs.users.bettina,
+      instructorId: UUIDs.users.jerry,
       startAt: new Date(2026, 7, 5, 19),
       endAt: new Date(2026, 7, 5, 19, 50),
-      name: "90s ride",
+      theme: "90s ride",
       description: "best ride of your life",
+      rideType: "NORMAL",
+      tokenPrice: 1.0
     },
   });
 
@@ -193,8 +255,10 @@ async function main() {
       instructorId: UUIDs.users.bettina,
       startAt: new Date(2026, 7, 6, 18),
       endAt: new Date(2026, 7, 6, 18, 50),
-      name: "80s ride",
+      theme: "80s ride",
       description: "ride or die",
+      rideType: "NORMAL",
+      tokenPrice: 1.0
     },
   });
 
