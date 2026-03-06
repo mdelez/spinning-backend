@@ -155,7 +155,7 @@ router.patch("/sessions/:id", async (req, res) => {
             }
         });
 
-        res.status(201).json(updatedSession);
+        res.status(200).json(updatedSession);
     } catch (error) {
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
