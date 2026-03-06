@@ -16,6 +16,17 @@ router.get("/users", async (_req, res) => {
     }
 });
 
+// GET /users/instructors
+router.get("/users/instructors", async (_req, res) => {
+    try {
+        const users = await prisma.user.findMany({ where: { role: 'INSTRUCTOR' } });
+        res.json(users);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch instructors" });
+    }
+});
+
 // GET /users/:id
 router.get("/users/:id", async (req, res) => {
     const { id } = req.params;
