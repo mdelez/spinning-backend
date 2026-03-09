@@ -9,6 +9,10 @@ const UUIDs = {
     bettina: "9f4b2d73-8c6e-4c1f-9b5a-2a7d8e4f2222",
     jerry: "97300dee-fd8d-455a-adad-2d6d323edfad",
     bob: "3a8d5f62-1e4c-4c9d-a7b1-6f3e9d5c3333",
+    jane: "d50abfa3-b975-472b-9f50-6c4b59e113be",
+    todd: "5b38f289-e5ec-4e22-9010-fd8be54b5b31",
+    sarah: "7f97ac21-97f7-4bb0-9806-bcf703b5914d",
+    david: "e0392b4a-ca11-44f1-a9a9-1f9b87cadd02"
   },
   studios: {
     basel: "2d7e4c91-3b5f-4a8a-8d1e-1f2a3b4c4444",
@@ -134,6 +138,62 @@ async function main() {
       dateOfBirth: new Date("1990-03-20"),
       shoeSize: 40,
       role: 'USER'
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { id: UUIDs.users.jane },
+    update: {},
+    create: {
+      id: UUIDs.users.jane,
+      email: "jane@example.com",
+      firstName: "Jane",
+      lastName: "Miller",
+      dateOfBirth: new Date("1992-07-14"),
+      shoeSize: 38,
+      role: "USER"
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { id: UUIDs.users.todd },
+    update: {},
+    create: {
+      id: UUIDs.users.todd,
+      email: "todd@example.com",
+      firstName: "Todd",
+      lastName: "Johnson",
+      dateOfBirth: new Date("1988-11-02"),
+      shoeSize: 42,
+      role: "USER"
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { id: UUIDs.users.sarah },
+    update: {},
+    create: {
+      id: UUIDs.users.sarah,
+      email: "sarah@example.com",
+      firstName: "Sarah",
+      lastName: "Williams",
+      dateOfBirth: new Date("1995-01-27"),
+      shoeSize: 37,
+      role: "USER"
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { id: UUIDs.users.david },
+    update: {},
+    create: {
+      id: UUIDs.users.david,
+      email: "david@example.com",
+      firstName: "David",
+      lastName: "Brown",
+      dateOfBirth: new Date("1985-09-10"),
+      shoeSize: 43,
+      role: "USER"
     },
   });
 

@@ -2,6 +2,8 @@ import { Router } from "express";
 import { prisma } from "../prisma.js";
 import { Prisma } from "@prisma/client";
 import { createBookingSchema, updateBookingSchema, addFriendBookingSchema } from "../zod/schemas/booking.schema.js";
+import { AuthRequest } from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
 
 const router = Router();
 
@@ -284,5 +286,64 @@ router.delete("/bookings/:id", async (req, res) => {
         res.status(500).json({ error: "Failed to delete booking" });
     }
 });
+
+// CHECK-IN /bookings/:id/checkin
+router.patch(
+    "/bookings/:id/checkin",
+    requireRole(["INSTRUCTOR", "ADMIN", "SUPER_ADMIN"]),
+    async (req: AuthRequest, res) => {
+        try {
+            const { id } = req.params as { id: string };
+            const user = req.user!; // guaranteed by auth middleware
+
+            const booking = await prisma.booking.findUnique({
+                where: { id },
+                include: { session: true },
+            });
+
+            if (!booking) {
+                return res.status(404).json({ error: "Booking not found" });
+            }
+
+            // instructors can only check in their own sessions
+            if (user.role === "INSTRUCTOR" && booking.session.instructorId !== user.id) {
+                return res.status(403).json({ error: "Not instructor of this session" });
+            }
+
+            let updatedBooking;
+
+            if (booking.checkedIn) {
+                // check out
+                updatedBooking = await prisma.booking.update({
+                    where: { id },
+                    data: {
+                        checkedIn: false,
+                        checkedInAt: null,
+                        checkedInBy: null,
+                        checkedOutAt: new Date(),
+                        checkedOutBy: user.id
+                    },
+                });
+            } else {
+                // check in
+                updatedBooking = await prisma.booking.update({
+                    where: { id },
+                    data: {
+                        checkedIn: true,
+                        checkedInAt: new Date(),
+                        checkedInBy: user.id,
+                        checkedOutAt: null,
+                        checkedOutBy: user.id
+                    },
+                });
+            }
+
+            res.json(updatedBooking);
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: "Failed to check in booking" });
+        }
+    }
+);
 
 export default router;
