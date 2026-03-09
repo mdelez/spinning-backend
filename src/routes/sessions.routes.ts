@@ -81,7 +81,17 @@ router.get("/sessions/:id/bookings", async (req, res) => {
                         shoeSize: true
                     }
                 },
+                bike: {
+                    select: {
+                        bikeNumber: true
+                    }
+                }
             },
+            orderBy: {
+                bike: {
+                    id: 'asc'
+                }
+            }
         });
 
         res.json(bookings);
