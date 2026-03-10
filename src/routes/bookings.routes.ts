@@ -26,7 +26,7 @@ router.get("/bookings", async (req, res) => {
                         shoeSize: true,
                     },
                 },
-                session: {
+                ride: {
                     include: {
                         studio: true,
                         instructor: {
@@ -41,7 +41,7 @@ router.get("/bookings", async (req, res) => {
                 bike: true,
             },
             orderBy: {
-                session: {
+                ride: {
                     startAt: "asc"
                 }
             },
@@ -70,7 +70,7 @@ router.get("/bookings/:id", async (req, res) => {
                         shoeSize: true
                     }
                 },
-                session: true,
+                ride: true,
                 bike: true,
             },
         });
@@ -90,7 +90,7 @@ router.post("/bookings", async (req, res) => {
         // parse and validate input
         const {
             userId,
-            sessionId,
+            rideId,
             userBikeId,
             friendBikeId,
             friendEmail,
@@ -98,9 +98,9 @@ router.post("/bookings", async (req, res) => {
             paid,
         } = createBookingSchema.parse(req.body);
 
-        // count existing bookings for this user & session
+        // count existing bookings for this user & ride
         const existingCount = await prisma.booking.count({
-            where: { userId, sessionId },
+            where: { userId, rideId },
         });
 
         const bikesRequested = friendBikeId ? 2 : 1;
@@ -108,7 +108,7 @@ router.post("/bookings", async (req, res) => {
         // enforce max 2 bikes
         if (existingCount + bikesRequested > 2) {
             return res.status(400).json({
-                error: "Maximum 2 bikes per session allowed",
+                error: "Maximum 2 bikes per ride allowed",
             });
         }
 
@@ -127,7 +127,7 @@ router.post("/bookings", async (req, res) => {
             const userBooking = await tx.booking.create({
                 data: {
                     userId,
-                    sessionId,
+                    rideId,
                     bikeId: userBikeId,
                     friendName: null,
                     friendShoeSize: null,
@@ -148,7 +148,7 @@ router.post("/bookings", async (req, res) => {
                 const friendBooking = await tx.booking.create({
                     data: {
                         userId,
-                        sessionId,
+                        rideId,
                         bikeId: friendBikeId,
                         friendEmail,
                         friendName: friendName ?? "Friend",
@@ -212,15 +212,15 @@ router.post("/bookings/add-friend", async (req, res) => {
         // parse and validate input
         const {
             userId,
-            sessionId,
+            rideId,
             friendBikeId,
             friendEmail,
             friendName
         } = addFriendBookingSchema.parse(req.body);
 
-        // count existing bookings for this user/session
+        // count existing bookings for this user/ride
         const existingBookings = await prisma.booking.findMany({
-            where: { userId, sessionId },
+            where: { userId, rideId },
         });
 
         if (existingBookings.length === 0) {
@@ -240,7 +240,7 @@ router.post("/bookings/add-friend", async (req, res) => {
             prisma.booking.create({
                 data: {
                     userId,
-                    sessionId,
+                    rideId,
                     bikeId: friendBikeId,
                     friendName,
                     friendEmail
@@ -298,16 +298,16 @@ router.patch(
 
             const booking = await prisma.booking.findUnique({
                 where: { id },
-                include: { session: true },
+                include: { ride: true },
             });
 
             if (!booking) {
                 return res.status(404).json({ error: "Booking not found" });
             }
 
-            // instructors can only check in their own sessions
-            if (user.role === "INSTRUCTOR" && booking.session.instructorId !== user.id) {
-                return res.status(403).json({ error: "Not instructor of this session" });
+            // instructors can only check in their own rides
+            if (user.role === "INSTRUCTOR" && booking.ride.instructorId !== user.id) {
+                return res.status(403).json({ error: "Not instructor of this ride" });
             }
 
             let updatedBooking;

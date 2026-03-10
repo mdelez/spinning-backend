@@ -18,7 +18,7 @@ const UUIDs = {
     basel: "2d7e4c91-3b5f-4a8a-8d1e-1f2a3b4c4444",
     oerlikon: "6a3f9b28-4e1c-4d7b-b9c2-5e6f7a8b5555",
   },
-  sessions: {
+  rides: {
     normal: "3a4d1734-04ba-4065-8697-51d8325c0666",
     intro: "cc15f3bb-d984-4ae0-b73c-afe2e743569c",
     event: "e6278218-5cb0-4b27-9d63-933f51b5343b",
@@ -247,12 +247,12 @@ async function main() {
 
   console.log("✅ Bikes seeded");
 
-  // ----- SESSIONS -----
-  await prisma.session.upsert({
-    where: { id: UUIDs.sessions.normal },
+  // ----- rideS -----
+  await prisma.ride.upsert({
+    where: { id: UUIDs.rides.normal },
     update: {},
     create: {
-      id: UUIDs.sessions.normal,
+      id: UUIDs.rides.normal,
       studioId: UUIDs.studios.basel,
       instructorId: UUIDs.users.bettina,
       startAt: new Date(2026, 7, 9, 19),
@@ -262,11 +262,11 @@ async function main() {
     },
   });
 
-  await prisma.session.upsert({
-    where: { id: UUIDs.sessions.intro },
+  await prisma.ride.upsert({
+    where: { id: UUIDs.rides.intro },
     update: {},
     create: {
-      id: UUIDs.sessions.intro,
+      id: UUIDs.rides.intro,
       studioId: UUIDs.studios.oerlikon,
       instructorId: UUIDs.users.jerry,
       startAt: new Date(2026, 7, 6, 20),
@@ -276,11 +276,11 @@ async function main() {
     },
   });
 
-  await prisma.session.upsert({
-    where: { id: UUIDs.sessions.event },
+  await prisma.ride.upsert({
+    where: { id: UUIDs.rides.event },
     update: {},
     create: {
-      id: UUIDs.sessions.event,
+      id: UUIDs.rides.event,
       studioId: UUIDs.studios.basel,
       instructorId: UUIDs.users.bettina,
       startAt: new Date(2026, 9, 6, 19),
@@ -290,11 +290,11 @@ async function main() {
     },
   });
 
-  await prisma.session.upsert({
-    where: { id: UUIDs.sessions.ride90s },
+  await prisma.ride.upsert({
+    where: { id: UUIDs.rides.ride90s },
     update: {},
     create: {
-      id: UUIDs.sessions.ride90s,
+      id: UUIDs.rides.ride90s,
       studioId: UUIDs.studios.basel,
       instructorId: UUIDs.users.jerry,
       startAt: new Date(2026, 7, 5, 19),
@@ -306,11 +306,11 @@ async function main() {
     },
   });
 
-  await prisma.session.upsert({
-    where: { id: UUIDs.sessions.ride80s },
+  await prisma.ride.upsert({
+    where: { id: UUIDs.rides.ride80s },
     update: {},
     create: {
-      id: UUIDs.sessions.ride80s,
+      id: UUIDs.rides.ride80s,
       studioId: UUIDs.studios.oerlikon,
       instructorId: UUIDs.users.bettina,
       startAt: new Date(2026, 7, 6, 18),
@@ -322,7 +322,7 @@ async function main() {
     },
   });
 
-  console.log("✅ Sessions seeded");
+  console.log("✅ Rides seeded");
 }
 
 main()

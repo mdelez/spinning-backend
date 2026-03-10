@@ -31,7 +31,7 @@ model User {
   createdAt   DateTime @default(now())
 
   bookings Booking[]
-  sessions Session[]
+  ride     Ride[]
 }
 
 model Studio {
@@ -39,8 +39,8 @@ model Studio {
   studioNumber Int    @unique
   name         String
 
-  bikes    Bike[]
-  sessions Session[]
+  bikes Bike[]
+  ride  Ride[]
 }
 
 model Bike {
@@ -54,7 +54,7 @@ model Bike {
   @@unique([studioId, bikeNumber])
 }
 
-model Session {
+model Ride {
   id           String   @id @default(uuid())
   instructorId String   @map("userId")
   studioId     String
@@ -68,12 +68,14 @@ model Session {
   instructor User      @relation(fields: [instructorId], references: [id])
   bookings   Booking[]
   studio     Studio    @relation(fields: [studioId], references: [id])
+
+  @@map("Ride")
 }
 
 model Booking {
   id                 String    @id @default(uuid())
   userId             String
-  sessionId          String
+  rideId             String
   bikeId             String
   friendEmail        String?
   friendName         String?
@@ -87,9 +89,9 @@ model Booking {
   checkedOutBy       String?
   createdAt          DateTime  @default(now())
 
-  user    User    @relation(fields: [userId], references: [id])
-  session Session @relation(fields: [sessionId], references: [id])
-  bike    Bike    @relation(fields: [bikeId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  ride Ride @relation(fields: [rideId], references: [id])
+  bike Bike @relation(fields: [bikeId], references: [id])
 
-  @@unique([sessionId, bikeId])
+  @@unique([rideId, bikeId])
 }

@@ -1,16 +1,16 @@
 import { Router } from "express";
 import { prisma } from "../prisma.js";
 import { Prisma } from "@prisma/client";
-import { createSessionSchema, updateSessionSchema } from "../zod/schemas/session.schema.js";
+import { createRideSchema, updateRideSchema } from "../zod/schemas/ride.schema.js";
 
 const router = Router();
 
-// GET /sessions?instructorId=[uuid]
-router.get("/sessions", async (req, res) => {
+// GET /rides?instructorId=[uuid]
+router.get("/rides", async (req, res) => {
     try {
         const { instructorId } = req.query;
 
-        const sessions = await prisma.session.findMany({
+        const rides = await prisma.ride.findMany({
             where: instructorId
                 ? { instructorId: String(instructorId) }
                 : undefined,
@@ -26,18 +26,18 @@ router.get("/sessions", async (req, res) => {
             },
         });
 
-        res.json(sessions);
+        res.json(rides);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Failed to fetch sessions" });
+        res.status(500).json({ error: "Failed to fetch rides" });
     }
 });
 
-// GET /sessions/:id - single session
-router.get("/sessions/:id", async (req, res) => {
+// GET /rides/:id - single ride
+router.get("/rides/:id", async (req, res) => {
     const { id } = req.params;
     try {
-        const session = await prisma.session.findUnique({
+        const ride = await prisma.ride.findUnique({
             where: { id },
             include: {
                 instructor: {
@@ -51,25 +51,25 @@ router.get("/sessions/:id", async (req, res) => {
                 // bookings: true,
             },
         });
-        if (session) {
-            res.json(session);
+        if (ride) {
+            res.json(ride);
         } else {
-            res.status(404).json({ error: "Session not found" });
+            res.status(404).json({ error: "ride not found" });
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Failed to fetch session" });
+        res.status(500).json({ error: "Failed to fetch ride" });
     }
 });
 
-// GET /sessions/:id/bookings - get all bookings for single session
-router.get("/sessions/:id/bookings", async (req, res) => {
+// GET /rides/:id/bookings - get all bookings for single ride
+router.get("/rides/:id/bookings", async (req, res) => {
     try {
         const { id } = req.params;
 
         const bookings = await prisma.booking.findMany({
             where: {
-                sessionId: id,
+                rideId: id,
             },
             include: {
                 user: {
@@ -101,43 +101,43 @@ router.get("/sessions/:id/bookings", async (req, res) => {
     }
 });
 
-// GET /sessions/:id/available-bikes
-router.get("/sessions/:id/available-bikes", async (req, res) => {
+// GET /rides/:id/available-bikes
+router.get("/rides/:id/available-bikes", async (req, res) => {
     const { id } = req.params;
 
-    // Find the session and its studio
-    const session = await prisma.session.findUnique({
+    // Find the ride and its studio
+    const ride = await prisma.ride.findUnique({
         where: { id },
         include: { bookings: true },
     });
 
-    if (!session) return res.status(404).json({ error: "Session not found" });
+    if (!ride) return res.status(404).json({ error: "ride not found" });
 
     // Get all bikes in this studio
     const allBikes = await prisma.bike.findMany({
-        where: { studioId: session.studioId },
+        where: { studioId: ride.studioId },
     });
 
     // Remove bikes that are already booked
-    const bookedBikeIds = session.bookings.map(b => b.bikeId);
+    const bookedBikeIds = ride.bookings.map(b => b.bikeId);
     const availableBikes = allBikes.filter(bike => !bookedBikeIds.includes(bike.id));
 
     res.json(availableBikes);
 });
 
-// POST /sessions - create session
-router.post("/sessions", async (req, res) => {
+// POST /rides - create ride
+router.post("/rides", async (req, res) => {
     try {
-        const parsedBody = createSessionSchema.parse(req.body);
+        const parsedBody = createRideSchema.parse(req.body);
 
-        const newSession = await prisma.session.create({
+        const newride = await prisma.ride.create({
             data: parsedBody,
             include: {
                 instructor: true
             }
         });
 
-        res.status(201).json(newSession);
+        res.status(201).json(newride);
     } catch (error) {
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -146,18 +146,18 @@ router.post("/sessions", async (req, res) => {
             return res.status(400).json({ error: "Duplicate unique field" });
         }
         console.error(error);
-        res.status(400).json({ error: "Invalid request body when creating session" });
+        res.status(400).json({ error: "Invalid request body when creating ride" });
     }
 });
 
-// PATCH /sessions/:id - update session
-router.patch("/sessions/:id", async (req, res) => {
+// PATCH /rides/:id - update ride
+router.patch("/rides/:id", async (req, res) => {
     const { id } = req.params;
 
     try {
-        const parsedBody = updateSessionSchema.parse(req.body);
+        const parsedBody = updateRideSchema.parse(req.body);
 
-        const updatedSession = await prisma.session.update({
+        const updatedride = await prisma.ride.update({
             where: { id },
             data: parsedBody,
             include: {
@@ -165,35 +165,35 @@ router.patch("/sessions/:id", async (req, res) => {
             }
         });
 
-        res.status(200).json(updatedSession);
+        res.status(200).json(updatedride);
     } catch (error) {
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === "P2025"
         ) {
-            return res.status(404).json({ error: "Session not found" });
+            return res.status(404).json({ error: "ride not found" });
         }
         console.error(error);
-        res.status(500).json({ error: "Failed to update session" });
+        res.status(500).json({ error: "Failed to update ride" });
     }
 });
 
-// DELETE /sessions/:id - delete session
-router.delete("/sessions/:id", async (req, res) => {
+// DELETE /rides/:id - delete ride
+router.delete("/rides/:id", async (req, res) => {
     const { id } = req.params;
 
     try {
-        await prisma.session.delete({ where: { id } });
+        await prisma.ride.delete({ where: { id } });
         res.status(204).send(); // no content
     } catch (error) {
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === "P2025"
         ) {
-            return res.status(404).json({ error: "Session not found" });
+            return res.status(404).json({ error: "ride not found" });
         }
         console.error(error);
-        res.status(500).json({ error: "Failed to delete session" });
+        res.status(500).json({ error: "Failed to delete ride" });
     }
 });
 
