@@ -8,8 +8,6 @@ export function requireRole(roles: string[]) {
             const session = await auth.api.getSession({
                 headers: fromNodeHeaders(req.headers),
             });
-            console.log('headers: ', fromNodeHeaders(req.headers));
-            console.log('session: ', session);
 
             if (!session?.user) {
                 return res.status(401).json({ error: "Unauthorized" });

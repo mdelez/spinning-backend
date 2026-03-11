@@ -2,6 +2,7 @@ import { expo } from "@better-auth/expo";
 import { PrismaClient } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { bearer } from "better-auth/plugins";
 
 const client = new PrismaClient();
 
@@ -38,7 +39,8 @@ export const auth = betterAuth({
         enabled: true
     },
     plugins: [
-        expo()
+        expo(),
+        bearer()
     ],
     trustedOrigins: [
         'spinningapp://', // correct Expo scheme
