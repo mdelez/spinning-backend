@@ -8,6 +8,32 @@ const client = new PrismaClient();
 export const auth = betterAuth({
     database: prismaAdapter(client, { provider: "postgresql" }),
     baseURL: "http://localhost:3000/",
+    user: {
+        additionalFields: {
+            firstName: {
+                type: "string",
+                required: true
+            },
+            lastName: {
+                type: "string",
+                required: true
+            },
+            shoeSize: {
+                type: "number",
+                required: true
+            },
+            dateOfBirth: {
+                type: "date",
+                required: false
+            },
+            role: {
+                type: ["USER", "INSTRUCTOR", "ADMIN"],
+                required: true,
+                defaultValue: "USER",
+                input: false, // don't allow user to set role
+            }
+        },
+    },
     emailAndPassword: {
         enabled: true
     },
