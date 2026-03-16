@@ -11,7 +11,7 @@ const router = Router();
 router.get(
     "/users",
     requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
-    async (_req, res) => {
+    authed(async (_req, res) => {
         try {
             const users = await prisma.user.findMany();
             res.json(users);
@@ -19,14 +19,14 @@ router.get(
             console.error(error);
             res.status(500).json({ error: "Failed to fetch users" });
         }
-    }
+    })
 );
 
 // GET /users/instructors
 router.get(
     "/users/instructors",
     requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
-    async (_req, res) => {
+    authed(async (_req, res) => {
         try {
             const users = await prisma.user.findMany({ where: { role: Role.INSTRUCTOR } });
             res.json(users);
@@ -34,7 +34,7 @@ router.get(
             console.error(error);
             res.status(500).json({ error: "Failed to fetch instructors" });
         }
-    }
+    })
 );
 
 // GET /users/me
@@ -55,7 +55,7 @@ router.get("/users/me", authed(async (req, res) => {
 router.get(
     "/users/:id",
     requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
-    async (req, res) => {
+    authed(async (req, res) => {
         const { id } = req.params as { id: string };
         try {
             const user = await prisma.user.findUnique({ where: { id } });
@@ -68,7 +68,7 @@ router.get(
             console.error(error);
             res.status(500).json({ error: "Failed to fetch user" });
         }
-    }
+    })
 );
 
 // PATCH /users/me
@@ -92,7 +92,7 @@ router.patch("/users/me", authed(async (req, res) => {
 router.patch(
     "/users/:id",
     requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
-    async (req, res) => {
+    authed(async (req, res) => {
         const { id } = req.params as { id: string };
 
         try {
@@ -108,7 +108,7 @@ router.patch(
             console.error(error);
             res.status(500).json({ error: "Failed to update user" });
         }
-    }
+    })
 );
 
 // DELETE /users/me
@@ -129,7 +129,7 @@ router.delete("/users/me", authed(async (req, res) => {
 router.delete(
     "/users/:id",
     requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
-    async (req, res) => {
+    authed(async (req, res) => {
         const { id } = req.params as { id: string };
 
         try {
@@ -140,11 +140,12 @@ router.delete(
                 error instanceof Prisma.PrismaClientKnownRequestError &&
                 error.code === "P2025"
             ) {
-                return res.status(404).json({ error: "User not found" });
+                res.status(404).json({ error: "User not found" });
+                return;
             }
             res.status(500).json({ error: "Failed to delete user" });
         }
-    }
+    })
 );
 
 export default router;
