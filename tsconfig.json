@@ -11,7 +11,7 @@
     "types": [
       "node",
       "express",
-      "./types/request.d.ts"
+      "./src/types/request.d.ts"
     ]
   },
   "include": [

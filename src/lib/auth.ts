@@ -1,5 +1,5 @@
 import { expo } from "@better-auth/expo";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { bearer } from "better-auth/plugins";
@@ -28,7 +28,7 @@ export const auth = betterAuth({
                 required: false
             },
             role: {
-                type: ["USER", "INSTRUCTOR", "ADMIN"],
+                type: Object.values(Role),
                 required: true,
                 defaultValue: "USER",
                 input: false, // don't allow user to set role

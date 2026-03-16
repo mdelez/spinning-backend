@@ -294,7 +294,6 @@ router.patch(
         try {
             const { id } = req.params as { id: string };
             const user = req.user!; // guaranteed by middleware
-            console.log('USER: ', user);
 
             const booking = await prisma.booking.findUnique({
                 where: { id },
