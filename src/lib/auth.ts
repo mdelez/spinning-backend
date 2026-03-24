@@ -49,9 +49,8 @@ export const auth = betterAuth({
         ...(process.env.NODE_ENV === "development" ? [
             "exp://",                      // Trust all Expo URLs (prefix matching)
             "exp://**",                    // Trust all Expo URLs (wildcard matching)
-            "exp://192.168.*.*:*/**",      // Trust 192.168.x.x IP range with any port and path
             'http://localhost:3000',       // web / dev testing
-            'http://192.168.1.119:3000',   // local network testing from phone
+            `${process.env.LOCAL_HOST_URL}:3000`,
             "exp+spinning-app://**"
         ] : [])
     ],
