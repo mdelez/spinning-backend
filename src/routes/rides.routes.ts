@@ -24,11 +24,26 @@ router.get("/rides", authed(async (req, res) => {
                         lastName: true,
                     },
                 },
-                studio: true,
+                studio: {
+                    include: {
+                        _count: {
+                            select: { bikes: true },
+                        },
+                    },
+                },
+                _count: {
+                    select: { bookings: true },
+                },
             },
         });
 
-        res.json(rides);
+        const ridesWithAvailability = rides.map(ride => ({
+            ...ride,
+            availableSpots:
+                ride.studio._count.bikes - ride._count.bookings,
+        }));
+
+        res.json(ridesWithAvailability);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to fetch rides" });
