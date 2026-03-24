@@ -1,31 +1,71 @@
 import { Router } from "express";
 import { prisma } from "../prisma.js";
-import { Prisma } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import { createBookingSchema, updateBookingSchema, addFriendBookingSchema } from "../zod/schemas/booking.schema.js";
-import { AuthRequest } from "../middleware/auth.js";
 import { requireRole } from "../middleware/requireRole.js";
+import { authed } from "../middleware/authed.js";
 
 const router = Router();
 
 // GET /bookings?userId=[uuid]
-router.get("/bookings", async (req, res) => {
-    const { userId } = req.query;
+router.get(
+    "/bookings",
+    requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
+    authed(async (req, res) => {
+        const { userId } = req.query;
+
+        try {
+            const bookings = await prisma.booking.findMany({
+                where: userId
+                    ? { userId: userId as string }
+                    : undefined, // no filter -> return all
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            shoeSize: true,
+                        },
+                    },
+                    ride: {
+                        include: {
+                            studio: true,
+                            instructor: {
+                                select: {
+                                    id: true,
+                                    firstName: true,
+                                    lastName: true,
+                                },
+                            },
+                        },
+                    },
+                    bike: true,
+                },
+                orderBy: {
+                    ride: {
+                        startAt: "asc"
+                    }
+                },
+            });
+
+            res.json(bookings);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: "Failed to fetch bookings" });
+        }
+    }
+    ));
+
+// GET /bookings/me
+router.get("/bookings/me", authed(async (req, res) => {
+    const { user } = req;
 
     try {
         const bookings = await prisma.booking.findMany({
-            where: userId
-                ? { userId: userId as string }
-                : undefined, // no filter -> return all
+            where: { userId: user.id },
             include: {
-                user: {
-                    select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                        shoeSize: true,
-                    },
-                },
                 ride: {
                     include: {
                         studio: true,
@@ -33,10 +73,10 @@ router.get("/bookings", async (req, res) => {
                             select: {
                                 id: true,
                                 firstName: true,
-                                lastName: true,
-                            },
-                        },
-                    },
+                                lastName: true
+                            }
+                        }
+                    }
                 },
                 bike: true,
             },
@@ -50,13 +90,14 @@ router.get("/bookings", async (req, res) => {
         res.json(bookings);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Failed to fetch bookings" });
+        res.status(500).json({ error: "Failed to fetch your bookings" });
     }
-});
+}));
 
 // GET /bookings/:id - single booking
-router.get("/bookings/:id", async (req, res) => {
-    const { id } = req.params;
+router.get("/bookings/:id", authed(async (req, res) => {
+    const { user } = req;
+    const { id } = req.params as { id: string };
     try {
         const booking = await prisma.booking.findUnique({
             where: { id },
@@ -74,22 +115,34 @@ router.get("/bookings/:id", async (req, res) => {
                 bike: true,
             },
         });
-        if (booking) {
-            res.json(booking);
-        } else {
+
+        if (!booking) {
             res.status(404).json({ error: "Booking not found" });
+            return;
         }
+
+        // ownership check
+        if (
+            (user.role !== Role.ADMIN && user.role !== Role.SUPER_ADMIN) &&
+            booking.userId !== user.id
+        ) {
+            res.status(403).json({ error: "Forbidden" });
+            return;
+        }
+
+        res.json(booking);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to fetch booking" });
     }
-});
+}));
 
-router.post("/bookings", async (req, res) => {
+router.post("/bookings", authed(async (req, res) => {
+    const { user } = req;
+
     try {
         // parse and validate input
         const {
-            userId,
             rideId,
             userBikeId,
             friendBikeId,
@@ -100,23 +153,21 @@ router.post("/bookings", async (req, res) => {
 
         // count existing bookings for this user & ride
         const existingCount = await prisma.booking.count({
-            where: { userId, rideId },
+            where: { userId: user.id, rideId },
         });
 
         const bikesRequested = friendBikeId ? 2 : 1;
 
         // enforce max 2 bikes
         if (existingCount + bikesRequested > 2) {
-            return res.status(400).json({
-                error: "Maximum 2 bikes per ride allowed",
-            });
+            res.status(400).json({ error: "Maximum 2 bikes per ride allowed" });
+            return;
         }
 
         // prevent same bike twice in request
         if (friendBikeId && friendBikeId === userBikeId) {
-            return res.status(400).json({
-                error: "Cannot book the same bike twice",
-            });
+            res.status(400).json({ error: "Cannot book the same bike twice" });
+            return;
         }
 
         // create bookings in a transaction
@@ -126,7 +177,7 @@ router.post("/bookings", async (req, res) => {
             // create user booking
             const userBooking = await tx.booking.create({
                 data: {
-                    userId,
+                    userId: user.id,
                     rideId,
                     bikeId: userBikeId,
                     friendName: null,
@@ -140,14 +191,12 @@ router.post("/bookings", async (req, res) => {
             // create friend booking if provided
             if (friendBikeId) {
                 if (!friendEmail) {
-                    return res.status(400).json({
-                        error: "Invalid friend email address provided",
-                    });
+                    throw new Error("Invalid friend email address provided");
                 }
 
                 const friendBooking = await tx.booking.create({
                     data: {
-                        userId,
+                        userId: user.id,
                         rideId,
                         bikeId: friendBikeId,
                         friendEmail,
@@ -162,139 +211,167 @@ router.post("/bookings", async (req, res) => {
             return created;
         });
 
-        return res.status(201).json(bookings);
-    } catch (error) {
+        res.status(201).json(bookings);
+    } catch (error: unknown) {
         // bike already booked
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === "P2002"
         ) {
-            return res.status(400).json({
-                error: "One of the selected bikes is already booked",
-            });
+            res.status(400).json({ error: "One of the selected bikes is already booked" });
+            return;
+        }
+
+        if (error instanceof Error && error.message === "Invalid friend email address provided") {
+            res.status(400).json({ error: error.message });
+            return;
         }
 
         console.error(error);
-        return res.status(400).json({
+        res.status(400).json({
             error: "Invalid request body or booking could not be created",
         });
     }
-});
+}));
 
 // PATCH /bookings/:id - update booking
-router.patch("/bookings/:id", async (req, res) => {
-    const { id } = req.params;
+router.patch("/bookings/:id", authed(async (req, res) => {
+    const { user } = req;
+    const { id } = req.params as { id: string };
 
     try {
         const parsedBody = updateBookingSchema.parse(req.body);
 
-        const updatedbooking = await prisma.booking.update({
+        const booking = await prisma.booking.findUnique({ where: { id } });
+        if (!booking) {
+            res.status(404).json({ error: "Booking not found" });
+            return;
+        }
+
+        if (
+            (user.role !== Role.ADMIN && user.role !== Role.SUPER_ADMIN) &&
+            booking.userId !== user.id
+        ) {
+            res.status(403).json({ error: "Forbidden" });
+            return;
+        }
+
+        const updatedBooking = await prisma.booking.update({
             where: { id },
             data: parsedBody,
         });
 
-        res.json(updatedbooking);
-    } catch (error) {
+        res.json(updatedBooking);
+    } catch (error: unknown) {
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === "P2025"
         ) {
-            return res.status(404).json({ error: "Booking not found" });
+            res.status(404).json({ error: "Booking not found" });
+            return;
         }
+
         console.error(error);
         res.status(500).json({ error: "Failed to update booking" });
     }
-});
+}));
 
 // POST /bookings/add-friend
-router.post("/bookings/add-friend", async (req, res) => {
+router.post("/bookings/add-friend", authed(async (req, res) => {
+    const { user } = req;
+
     try {
         // parse and validate input
         const {
-            userId,
             rideId,
             friendBikeId,
             friendEmail,
-            friendName
+            friendName,
         } = addFriendBookingSchema.parse(req.body);
 
-        // count existing bookings for this user/ride
+        // fetch existing bookings for this user & ride
         const existingBookings = await prisma.booking.findMany({
-            where: { userId, rideId },
+            where: { userId: user.id, rideId },
         });
 
         if (existingBookings.length === 0) {
-            return res.status(400).json({
-                error: "No existing booking found to add friend to",
-            });
+            res.status(400).json({ error: "No existing booking found to add friend to" });
+            return;
         }
 
         if (existingBookings.length >= 2) {
-            return res.status(400).json({
-                error: "Cannot add friend: user already has max 2 bookings",
-            });
+            res.status(400).json({ error: "Cannot add friend: user already has max 2 bookings" });
+            return;
         }
 
         // create friend booking in a transaction
         const [friendBooking] = await prisma.$transaction([
             prisma.booking.create({
                 data: {
-                    userId,
+                    userId: user.id,
                     rideId,
                     bikeId: friendBikeId,
-                    friendName,
-                    friendEmail
+                    friendEmail,
+                    friendName: friendName ?? "Friend",
+                    friendWaiverSigned: false,
+                    paid: false,
                 },
             }),
         ]);
 
-        return res.status(201).json(friendBooking);
-    } catch (error) {
-        // bike already booked
+        res.status(201).json(friendBooking);
+    } catch (error: unknown) {
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === "P2002"
         ) {
-            return res.status(400).json({
-                error: "Selected bike is already booked",
-            });
+            res.status(400).json({ error: "Selected bike is already booked" });
+            return;
         }
 
         console.error(error);
-        return res.status(400).json({
-            error: "Could not add friend to booking",
-        });
+        res.status(400).json({ error: "Could not add friend to booking" });
     }
-});
+}));
 
 // TODO: can a friend's booking be deleted without also deleting the user's booking?
 // DELETE /bookings/:id
-router.delete("/bookings/:id", async (req, res) => {
-    const { id } = req.params;
+router.delete("/bookings/:id", authed(async (req, res) => {
+    const { user } = req;
+    const { id } = req.params as { id: string };
 
     try {
+        // fetch booking first to check ownership
+        const booking = await prisma.booking.findUnique({ where: { id } });
+        if (!booking) {
+            res.status(404).json({ error: "Booking not found" });
+            return;
+        }
+
+        if (
+            (user.role !== Role.ADMIN && user.role !== Role.SUPER_ADMIN) &&
+            booking.userId !== user.id
+        ) {
+            res.status(403).json({ error: "Forbidden" });
+            return;
+        }
+
         await prisma.booking.delete({ where: { id } });
         res.status(204).send(); // no content
-    } catch (error) {
-        if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === "P2025"
-        ) {
-            return res.status(404).json({ error: "Booking not found" });
-        }
+    } catch (error: unknown) {
         console.error(error);
         res.status(500).json({ error: "Failed to delete booking" });
     }
-});
+}));
 
 // CHECK-IN /bookings/:id/checkin
 router.patch(
     "/bookings/:id/checkin",
-    requireRole(["INSTRUCTOR", "ADMIN", "SUPER_ADMIN"]),
-    async (req: AuthRequest, res) => {
+    requireRole([Role.INSTRUCTOR, Role.ADMIN, Role.SUPER_ADMIN]),
+    authed(async (req, res) => {
         try {
+            const { user } = req;
             const { id } = req.params as { id: string };
-            const user = req.user!; // guaranteed by auth middleware
 
             const booking = await prisma.booking.findUnique({
                 where: { id },
@@ -302,41 +379,25 @@ router.patch(
             });
 
             if (!booking) {
-                return res.status(404).json({ error: "Booking not found" });
+                res.status(404).json({ error: "Booking not found" });
+                return;
             }
 
-            // instructors can only check in their own rides
-            if (user.role === "INSTRUCTOR" && booking.ride.instructorId !== user.id) {
-                return res.status(403).json({ error: "Not instructor of this ride" });
+            if (user.role === Role.INSTRUCTOR && booking.ride.instructorId !== user.id) {
+                res.status(403).json({ error: "Not instructor of this ride" });
+                return;
             }
 
-            let updatedBooking;
-
-            if (booking.checkedIn) {
-                // check out
-                updatedBooking = await prisma.booking.update({
-                    where: { id },
-                    data: {
-                        checkedIn: false,
-                        checkedInAt: null,
-                        checkedInBy: null,
-                        checkedOutAt: new Date(),
-                        checkedOutBy: user.id
-                    },
-                });
-            } else {
-                // check in
-                updatedBooking = await prisma.booking.update({
-                    where: { id },
-                    data: {
-                        checkedIn: true,
-                        checkedInAt: new Date(),
-                        checkedInBy: user.id,
-                        checkedOutAt: null,
-                        checkedOutBy: user.id
-                    },
-                });
-            }
+            const updatedBooking = await prisma.booking.update({
+                where: { id },
+                data: {
+                    checkedIn: !booking.checkedIn,
+                    checkedInAt: booking.checkedIn ? null : new Date(),
+                    checkedInBy: booking.checkedIn ? null : user.id,
+                    checkedOutAt: booking.checkedIn ? new Date() : null,
+                    checkedOutBy: user.id,
+                },
+            });
 
             res.json(updatedBooking);
         } catch (err) {
@@ -344,6 +405,6 @@ router.patch(
             res.status(500).json({ error: "Failed to check in booking" });
         }
     }
-);
+    ));
 
 export default router;

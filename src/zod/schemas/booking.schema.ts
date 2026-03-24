@@ -2,7 +2,6 @@ import { z } from "zod";
 
 export const createBookingSchema = z
     .object({
-        userId: z.string(),
         rideId: z.string(),
         userBikeId: z.string(),
         paid: z.boolean(),
@@ -38,7 +37,6 @@ export const updateBookingSchema = z.object({
 })
 
 export const addFriendBookingSchema = z.object({
-    userId: z.string(),
     rideId: z.string(),
     friendBikeId: z.string(),
     friendEmail: z.email(),

@@ -7,7 +7,14 @@
     "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": [
+      "node",
+      "express",
+      "./src/types/request.d.ts"
+    ]
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }
