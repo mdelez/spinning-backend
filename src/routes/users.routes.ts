@@ -1,9 +1,23 @@
 import { Router } from "express";
+import multer from "multer";
 import { prisma } from "../prisma.js";
 import { updateUserSchema } from "../zod/schemas/user.schema.js";
 import { Prisma, Role } from "@prisma/client";
 import { requireRole } from "../middleware/requireRole.js";
 import { authed } from "../middleware/authed.js";
+import { uploadToR2 } from "../lib/r2.js";
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: (_req, file, cb) => {
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
+            cb(new Error("Only JPEG, PNG, and WebP images are allowed"));
+            return;
+        }
+        cb(null, true);
+    },
+});
 
 const router = Router();
 
@@ -242,6 +256,48 @@ router.delete("/users/me", authed(async (req, res) => {
         res.status(500).json({ error: "Failed to delete user" });
     }
 }));
+
+// POST /users/instructors/:id/image
+router.post(
+    "/users/instructors/:id/image",
+    requireRole([Role.INSTRUCTOR, Role.ADMIN, Role.SUPER_ADMIN]),
+    upload.single("image"),
+    authed(async (req, res) => {
+        const { id } = req.params as { id: string };
+
+        if (req.user.role === Role.INSTRUCTOR && req.user.id !== id) {
+            res.status(403).json({ error: "Instructors can only update their own image" });
+            return;
+        }
+
+        if (!req.file) {
+            res.status(400).json({ error: "No image file provided" });
+            return;
+        }
+
+        const instructor = await prisma.user.findUnique({
+            where: { id, role: Role.INSTRUCTOR },
+            select: { id: true },
+        });
+
+        if (!instructor) {
+            res.status(404).json({ error: "Instructor not found" });
+            return;
+        }
+
+        const ext = req.file.mimetype.split("/")[1];
+        const key = `instructors/${id}/profile.${ext}`;
+        const imageUrl = await uploadToR2(key, req.file.buffer, req.file.mimetype);
+
+        const updated = await prisma.user.update({
+            where: { id },
+            data: { image: imageUrl },
+            select: { id: true, image: true },
+        });
+
+        res.json(updated);
+    })
+);
 
 // DELETE /users/:id
 router.delete(
