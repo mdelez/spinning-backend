@@ -41,7 +41,10 @@ router.get(
     "/users/instructors",
     authed(async (_req, res) => {
         try {
-            const users = await prisma.user.findMany({ where: { role: Role.INSTRUCTOR } });
+            const users = await prisma.user.findMany({
+                where: { role: Role.INSTRUCTOR },
+                include: { instructorProfile: true }
+            });
             res.json(users);
         } catch (error) {
             console.error(error);
@@ -56,7 +59,14 @@ router.get("/users/instructors/:id/bio", authed(async (req, res) => {
     try {
         const instructor = await prisma.user.findUnique({
             where: { id, role: Role.INSTRUCTOR },
-            select: { id: true, firstName: true, lastName: true, bio: true, image: true },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                instructorProfile: {
+                    select: { bio: true, spotifyLink: true, image: true },
+                },
+            },
         });
         if (!instructor) {
             res.status(404).json({ error: "Instructor not found" });
@@ -257,6 +267,30 @@ router.delete("/users/me", authed(async (req, res) => {
     }
 }));
 
+// PATCH /users/instructors/:id/profile
+router.patch(
+    "/users/instructors/:id/profile",
+    requireRole([Role.ADMIN, Role.SUPER_ADMIN, Role.INSTRUCTOR]),
+    authed(async (req, res) => {
+        const { id } = req.params as { id: string };
+
+        if (req.user.role === Role.INSTRUCTOR && req.user.id !== id) {
+            res.status(403).json({ error: "Instructors can only update their own profile" });
+            return;
+        }
+
+        const { bio, spotifyLink } = req.body as { bio?: string; spotifyLink?: string };
+
+        const updated = await prisma.instructorProfile.upsert({
+            where: { userId: id },
+            create: { userId: id, bio, spotifyLink },
+            update: { bio, spotifyLink },
+        });
+
+        res.json(updated);
+    })
+);
+
 // POST /users/instructors/:id/image
 router.post(
     "/users/instructors/:id/image",
@@ -289,10 +323,11 @@ router.post(
         const key = `instructors/${id}/profile.${ext}`;
         const imageUrl = await uploadToR2(key, req.file.buffer, req.file.mimetype);
 
-        const updated = await prisma.user.update({
-            where: { id },
-            data: { image: imageUrl },
-            select: { id: true, image: true },
+        const updated = await prisma.instructorProfile.upsert({
+            where: { userId: id },
+            create: { userId: id, image: imageUrl },
+            update: { image: imageUrl },
+            select: { userId: true, image: true },
         });
 
         res.json(updated);

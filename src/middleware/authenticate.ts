@@ -20,7 +20,6 @@ export async function authenticate(
             ...session.user,
             image: session.user.image ?? null,
             dateOfBirth: session.user.dateOfBirth ?? null,
-            bio: session.user.bio ?? null,
         };
 
         req.session = {
