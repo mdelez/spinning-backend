@@ -20,6 +20,11 @@ enum RideType {
   INTRO
 }
 
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -34,10 +39,11 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  bookings Booking[]
-  rides    Ride[]
-  sessions Session[]
-  accounts Account[]
+  bookings        Booking[]
+  rides           Ride[]
+  sessions        Session[]
+  accounts        Account[]
+  waitlistEntries WaitlistEntry[]
 
   @@map("User")
 }
@@ -121,9 +127,10 @@ model Ride {
   rideType     RideType @default(NORMAL)
   tokenPrice   Float    @default(1.0)
 
-  instructor User      @relation(fields: [instructorId], references: [id])
-  bookings   Booking[]
-  studio     Studio    @relation(fields: [studioId], references: [id])
+  instructor      User            @relation(fields: [instructorId], references: [id])
+  bookings        Booking[]
+  studio          Studio          @relation(fields: [studioId], references: [id])
+  waitlistEntries WaitlistEntry[]
 
   @@map("Ride")
 }
@@ -150,4 +157,22 @@ model Booking {
   bike Bike @relation(fields: [bikeId], references: [id])
 
   @@unique([rideId, bikeId])
+}
+
+model WaitlistEntry {
+  id        String   @id @default(uuid())
+  rideId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // reservation system
+  status        WaitlistStatus @default(WAITING)
+  reservedUntil DateTime?
+  notifiedAt    DateTime?
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([rideId, userId])
+  @@index([rideId, status, createdAt])
 }

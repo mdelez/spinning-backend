@@ -4,6 +4,7 @@ import { Prisma, Role } from "@prisma/client";
 import { createBookingSchema, updateBookingSchema, addFriendBookingSchema } from "../zod/schemas/booking.schema.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { authed } from "../middleware/authed.js";
+import { triggerNextWaitlistUser } from "../services/services/triggerNextWaitlistUser.js";
 
 const router = Router();
 
@@ -356,7 +357,10 @@ router.delete("/bookings/:id", authed(async (req, res) => {
             return;
         }
 
-        await prisma.booking.delete({ where: { id } });
+        await prisma.$transaction(async (tx) => {
+            await tx.booking.delete({ where: { id } });
+            await triggerNextWaitlistUser(booking.rideId, tx);
+        });
         res.status(204).send(); // no content
     } catch (error: unknown) {
         console.error(error);

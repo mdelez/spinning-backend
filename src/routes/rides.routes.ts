@@ -254,4 +254,128 @@ router.delete(
     })
 );
 
+// POST /rides/:id/waitlist
+router.post(
+    "/rides/:id/waitlist",
+    authed(async (req, res) => {
+        const { id } = req.params as { id: string };
+        const userId = req.user.id;
+
+        try {
+            const existingBooking = await prisma.booking.findFirst({
+                where: { id, userId }
+            })
+
+            if (existingBooking) {
+                res.status(400).json({
+                    error: "You already have a booking for this ride"
+                });
+                return;
+            }
+
+            const entry = await prisma.waitlistEntry.create({
+                data: {
+                    rideId: id,
+                    userId
+                }
+            })
+
+            res.status(201).json(entry);
+        } catch (error) {
+            if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2002"
+            ) {
+                res.status(400).json({
+                    error: "You are already on the waitlist",
+                });
+                return;
+            }
+
+            console.error(error);
+            res.status(500).json({ error: "Failed to join waitlist" });
+        }
+    })
+)
+
+// DELETE /rides/:id/waitlist
+router.delete(
+    "/rides/:id/waitlist",
+    authed(async (req, res) => {
+        const { id } = req.params as { id: string };
+        const userId = req.user.id;
+
+        try {
+            const entry = await prisma.waitlistEntry.findUnique({
+                where: {
+                    rideId_userId: {
+                        rideId: id,
+                        userId,
+                    },
+                },
+            });
+
+            if (!entry) {
+                res.status(404).json({
+                    error: "Not on waitlist",
+                });
+                return;
+            }
+
+            await prisma.waitlistEntry.delete({
+                where: { id: entry.id },
+            });
+
+            res.status(204).send();
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: "Failed to leave waitlist" });
+        }
+    })
+);
+
+// GET /rides/:id/waitlist/me
+router.get(
+    "/rides/:id/waitlist/me",
+    authed(async (req, res) => {
+        const { id } = req.params as { id: string };
+        const userId = req.user.id;
+
+        try {
+            const entry = await prisma.waitlistEntry.findUnique({
+                where: {
+                    rideId_userId: {
+                        rideId: id,
+                        userId,
+                    },
+                },
+            });
+
+            if (!entry) {
+                res.json({ inWaitlist: false });
+                return;
+            }
+
+            // compute position among WAITING users
+            const position = await prisma.waitlistEntry.count({
+                where: {
+                    rideId: id,
+                    status: "WAITING",
+                    createdAt: { lt: entry.createdAt },
+                },
+            });
+
+            res.json({
+                inWaitlist: true,
+                status: entry.status,
+                position: entry.status === "WAITING" ? position + 1 : null,
+                reservedUntil: entry.reservedUntil,
+            });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: "Failed to fetch waitlist status" });
+        }
+    })
+);
+
 export default router;

@@ -71,6 +71,106 @@ router.get(
     })
 );
 
+router.get("/users/rides/me", authed(async (req, res) => {
+    const userId = req.user.id;
+
+    try {
+        const bookings = await prisma.booking.findMany({
+            where: { userId },
+            include: {
+                ride: {
+                    include: {
+                        studio: true,
+                        instructor: {
+                            select: {
+                                firstName: true
+                            }
+                        }
+                    }
+                },
+                bike: {
+                    select: {
+                        bikeNumber: true
+                    }
+                }
+            },
+        });
+
+        const waitlistEntries = await prisma.waitlistEntry.findMany({
+            where: { userId },
+            include: {
+                ride: {
+                    include: {
+                        studio: true,
+                        instructor: {
+                            select: {
+                                firstName: true
+                            }
+                        }
+                    }
+                }
+            },
+        });
+
+        const bookedRides = bookings.map((b) => ({
+            rideId: b.rideId,
+            startAt: b.ride.startAt,
+            endAt: b.ride.endAt,
+            theme: b.ride.theme,
+            rideType: b.ride.rideType,
+            instructor: b.ride.instructor.firstName,
+            studioName: b.ride.studio.name,
+            status: "BOOKED",
+            booking: {
+                bikeNumber: b.bike.bikeNumber,
+            },
+            waitlist: null,
+        }));
+
+        const waitlistedRides = await Promise.all(
+            waitlistEntries.map(async (w) => {
+                // compute position in queue
+                const position = await prisma.waitlistEntry.count({
+                    where: {
+                        rideId: w.rideId,
+                        status: "WAITING",
+                        createdAt: { lt: w.createdAt },
+                    },
+                });
+
+                return {
+                    rideId: w.rideId,
+                    startAt: w.ride.startAt,
+                    endAt: w.ride.endAt,
+                    theme: w.ride.theme,
+                    rideType: w.ride.rideType,
+                    instructor: w.ride.instructor.firstName,
+                    studioName: w.ride.studio.name,
+                    status: "WAITLISTED",
+                    booking: null,
+                    waitlist: {
+                        position: w.status === "WAITING" ? position + 1 : null,
+                        status: w.status,
+                        reservedUntil: w.reservedUntil,
+                    },
+                };
+            })
+        );
+
+        // merge and sort by date
+        const result = [...bookedRides, ...waitlistedRides].sort(
+            (a, b) =>
+                new Date(a.startAt).getTime() -
+                new Date(b.startAt).getTime()
+        );
+
+        res.json(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch user rides" });
+    }
+}));
+
 // PATCH /users/me
 router.patch("/users/me", authed(async (req, res) => {
     try {
