@@ -31,8 +31,8 @@ export async function triggerNextWaitlistUser(
 
     const reservedUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
 
-    console.log('next user: ', next.userId);
-    console.log('reserved until: ', reservedUntil);
+    // console.log('next user: ', next.userId);
+    // console.log('reserved until: ', reservedUntil);
 
     // update entry
     await tx.waitlistEntry.update({

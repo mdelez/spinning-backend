@@ -3,7 +3,7 @@ import { triggerNextWaitlistUser } from "./triggerNextWaitlistUser.js";
 
 export async function handleExpiredReservations() {
     const now = new Date();
-    console.log('handling expired reservations');
+    // console.log('handling expired reservations');
 
     try {
         // find expired reservations
