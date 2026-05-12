@@ -25,7 +25,6 @@ router.get(
 // GET /users/instructors
 router.get(
     "/users/instructors",
-    requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
     authed(async (_req, res) => {
         try {
             const users = await prisma.user.findMany({ where: { role: Role.INSTRUCTOR } });
@@ -36,6 +35,25 @@ router.get(
         }
     })
 );
+
+// GET /users/instructors/:id/bio
+router.get("/users/instructors/:id/bio", authed(async (req, res) => {
+    const { id } = req.params as { id: string };
+    try {
+        const instructor = await prisma.user.findUnique({
+            where: { id, role: Role.INSTRUCTOR },
+            select: { id: true, firstName: true, lastName: true, bio: true, image: true },
+        });
+        if (!instructor) {
+            res.status(404).json({ error: "Instructor not found" });
+            return;
+        }
+        res.json(instructor);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch instructor bio" });
+    }
+}));
 
 // GET /users/me
 router.get("/users/me", authed(async (req, res) => {
