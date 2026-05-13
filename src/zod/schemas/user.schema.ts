@@ -13,4 +13,6 @@ export const updateUserSchema = z.object({
     lastName: z.string().min(1).optional(),
     shoeSize: z.number().int().optional(),
     dateOfBirth: z.coerce.date().optional(),
+    bio: z.string().optional(),
+    spotifyLink: z.string().optional(),
 });

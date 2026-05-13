@@ -53,8 +53,8 @@ router.get(
     })
 );
 
-// GET /users/instructors/:id/bio
-router.get("/users/instructors/:id/bio", authed(async (req, res) => {
+// GET /users/instructors/:id
+router.get("/users/instructors/:id", authed(async (req, res) => {
     const { id } = req.params as { id: string };
     try {
         const instructor = await prisma.user.findUnique({
@@ -75,7 +75,7 @@ router.get("/users/instructors/:id/bio", authed(async (req, res) => {
         res.json(instructor);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Failed to fetch instructor bio" });
+        res.status(500).json({ error: "Failed to fetch instructor" });
     }
 }));
 
@@ -84,6 +84,7 @@ router.get("/users/me", authed(async (req, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
+            include: { instructorProfile: true }
         });
 
         res.json(user);
@@ -216,11 +217,29 @@ router.get("/users/rides/me", authed(async (req, res) => {
 // PATCH /users/me
 router.patch("/users/me", authed(async (req, res) => {
     try {
-        const parsedBody = updateUserSchema.parse(req.body);
+        const { bio, spotifyLink, ...userFields } = updateUserSchema.parse(req.body);
+
+        if ((bio !== undefined || spotifyLink !== undefined) && req.user.role !== Role.INSTRUCTOR) {
+            res.status(403).json({ error: "Only instructors can update bio and Spotify link" });
+            return;
+        }
 
         const updatedUser = await prisma.user.update({
             where: { id: req.user.id },
-            data: parsedBody,
+            data: {
+                ...userFields,
+                ...(bio !== undefined || spotifyLink !== undefined
+                    ? {
+                          instructorProfile: {
+                              upsert: {
+                                  create: { bio, spotifyLink },
+                                  update: { bio, spotifyLink },
+                              },
+                          },
+                      }
+                    : {}),
+            },
+            include: { instructorProfile: true },
         });
 
         res.json(updatedUser);
@@ -238,11 +257,36 @@ router.patch(
         const { id } = req.params as { id: string };
 
         try {
-            const parsedBody = updateUserSchema.parse(req.body);
+            const { bio, spotifyLink, ...userFields } = updateUserSchema.parse(req.body);
+
+            if (bio !== undefined || spotifyLink !== undefined) {
+                const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+                if (!target) {
+                    res.status(404).json({ error: "User not found" });
+                    return;
+                }
+                if (target.role !== Role.INSTRUCTOR) {
+                    res.status(403).json({ error: "Only instructors can have a bio and Spotify link" });
+                    return;
+                }
+            }
 
             const updatedUser = await prisma.user.update({
                 where: { id },
-                data: parsedBody,
+                data: {
+                    ...userFields,
+                    ...(bio !== undefined || spotifyLink !== undefined
+                        ? {
+                              instructorProfile: {
+                                  upsert: {
+                                      create: { bio, spotifyLink },
+                                      update: { bio, spotifyLink },
+                                  },
+                              },
+                          }
+                        : {}),
+                },
+                include: { instructorProfile: true },
             });
 
             res.json(updatedUser);
