@@ -84,7 +84,15 @@ router.get("/users/me", authed(async (req, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
-            include: { instructorProfile: true }
+            include: {
+                instructorProfile: {
+                    select: {
+                        bio: true,
+                        image: true,
+                        spotifyLink: true,
+                    }
+                }
+            }
         });
 
         res.json(user);
@@ -230,13 +238,13 @@ router.patch("/users/me", authed(async (req, res) => {
                 ...userFields,
                 ...(bio !== undefined || spotifyLink !== undefined
                     ? {
-                          instructorProfile: {
-                              upsert: {
-                                  create: { bio, spotifyLink },
-                                  update: { bio, spotifyLink },
-                              },
-                          },
-                      }
+                        instructorProfile: {
+                            upsert: {
+                                create: { bio, spotifyLink },
+                                update: { bio, spotifyLink },
+                            },
+                        },
+                    }
                     : {}),
             },
             include: { instructorProfile: true },
@@ -277,13 +285,13 @@ router.patch(
                     ...userFields,
                     ...(bio !== undefined || spotifyLink !== undefined
                         ? {
-                              instructorProfile: {
-                                  upsert: {
-                                      create: { bio, spotifyLink },
-                                      update: { bio, spotifyLink },
-                                  },
-                              },
-                          }
+                            instructorProfile: {
+                                upsert: {
+                                    create: { bio, spotifyLink },
+                                    update: { bio, spotifyLink },
+                                },
+                            },
+                        }
                         : {}),
                 },
                 include: { instructorProfile: true },
