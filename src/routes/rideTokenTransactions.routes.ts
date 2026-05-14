@@ -1,0 +1,66 @@
+import { Router } from "express";
+import { prisma } from "../prisma.js";
+import { Role } from "@prisma/client";
+import { requireRole } from "../middleware/requireRole.js";
+import { authed } from "../middleware/authed.js";
+
+const router = Router();
+
+async function computeBalance(userId: string): Promise<number> {
+    const { _sum } = await prisma.rideTokenTransaction.aggregate({
+        where: { userId },
+        _sum: { amountUnits: true },
+    });
+    return _sum.amountUnits ?? 0;
+}
+
+// GET /ride-token-transactions/balance
+router.get("/ride-token-transactions/balance", authed(async (req, res) => {
+    const { user } = req;
+    const balance = await computeBalance(user.id);
+    res.json({ balance });
+}));
+
+// GET /ride-token-transactions?userId=[uuid]
+router.get(
+    "/ride-token-transactions",
+    requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
+    authed(async (req, res) => {
+        const { userId } = req.query;
+
+        const transactions = await prisma.rideTokenTransaction.findMany({
+            where: userId ? { userId: userId as string } : undefined,
+            include: {
+                user: {
+                    select: { id: true, firstName: true, lastName: true, email: true },
+                },
+                ride: {
+                    select: { id: true, startAt: true, rideType: true },
+                },
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        res.json(transactions);
+    })
+);
+
+// GET /ride-token-transactions/balance/:userId
+router.get(
+    "/ride-token-transactions/balance/:userId",
+    requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
+    authed(async (req, res) => {
+        const { userId } = req.params as { userId: string };
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            res.status(404).json({ error: "User not found" });
+            return;
+        }
+
+        const balance = await computeBalance(userId);
+        res.json({ balance });
+    })
+);
+
+export default router;
