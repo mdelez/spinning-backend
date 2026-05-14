@@ -370,8 +370,10 @@ router.delete("/bookings/:id", authed(async (req, res) => {
     const { id } = req.params as { id: string };
 
     try {
-        // fetch booking first to check ownership
-        const booking = await prisma.booking.findUnique({ where: { id } });
+        const booking = await prisma.booking.findUnique({
+            where: { id },
+            include: { ride: true },
+        });
         if (!booking) {
             res.status(404).json({ error: "Booking not found" });
             return;
@@ -385,11 +387,35 @@ router.delete("/bookings/:id", authed(async (req, res) => {
             return;
         }
 
+        const hoursUntilRide = (booking.ride.startAt.getTime() - Date.now()) / (1000 * 60 * 60);
+        const eligibleForRefund = hoursUntilRide >= 12;
+
+        let refundedUnits: number | null = null;
+
         await prisma.$transaction(async (tx) => {
+            if (eligibleForRefund) {
+                const bookingTransaction = await tx.rideTokenTransaction.findFirst({
+                    where: { userId: booking.userId, rideId: booking.rideId, type: "BOOKING" },
+                });
+
+                if (bookingTransaction) {
+                    refundedUnits = -bookingTransaction.amountUnits;
+                    await tx.rideTokenTransaction.create({
+                        data: {
+                            userId: booking.userId,
+                            rideId: booking.rideId,
+                            amountUnits: refundedUnits,
+                            type: "REFUND",
+                        },
+                    });
+                }
+            }
+
             await tx.booking.delete({ where: { id } });
             await triggerNextWaitlistUser(booking.rideId, tx);
         });
-        res.status(204).send(); // no content
+
+        res.json({ refunded: refundedUnits !== null, refundedUnits });
     } catch (error: unknown) {
         console.error(error);
         res.status(500).json({ error: "Failed to delete booking" });
