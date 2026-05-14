@@ -3,6 +3,7 @@ import { prisma } from "../prisma.js";
 import { Role } from "@prisma/client";
 import { requireRole } from "../middleware/requireRole.js";
 import { authed } from "../middleware/authed.js";
+import { createTokenTransactionSchema } from "../zod/schemas/rideTokenTransaction.schema.js";
 
 const router = Router();
 
@@ -60,6 +61,27 @@ router.get(
 
         const balance = await computeBalance(userId);
         res.json({ balance });
+    })
+);
+
+// POST /ride-token-transactions
+router.post(
+    "/ride-token-transactions",
+    requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
+    authed(async (req, res) => {
+        const { userId, amountUnits, type } = createTokenTransactionSchema.parse(req.body);
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            res.status(404).json({ error: "User not found" });
+            return;
+        }
+
+        const transaction = await prisma.rideTokenTransaction.create({
+            data: { userId, amountUnits, type },
+        });
+
+        res.status(201).json(transaction);
     })
 );
 
