@@ -215,15 +215,21 @@ router.patch(
         try {
             const parsedBody = updateRideSchema.parse(req.body);
 
-            const updatedride = await prisma.ride.update({
+            const data: Prisma.RideUpdateInput = { ...parsedBody }
+
+            if (parsedBody.rideType) {
+                data.tokenPriceUnits = priceMap[parsedBody.rideType];
+            }
+
+            const updatedRide = await prisma.ride.update({
                 where: { id },
-                data: parsedBody,
+                data,
                 include: {
                     instructor: true
                 }
             });
 
-            res.status(200).json(updatedride);
+            res.status(200).json(updatedRide);
         } catch (error) {
             if (
                 error instanceof Prisma.PrismaClientKnownRequestError &&
