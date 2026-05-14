@@ -82,7 +82,7 @@ router.post(
     "/ride-token-transactions",
     requireRole([Role.ADMIN, Role.SUPER_ADMIN]),
     authed(async (req, res) => {
-        const { userId, amountUnits, type } = createTokenTransactionSchema.parse(req.body);
+        const { userId, amountUnits, type, note } = createTokenTransactionSchema.parse(req.body);
 
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
@@ -91,7 +91,7 @@ router.post(
         }
 
         const transaction = await prisma.rideTokenTransaction.create({
-            data: { userId, amountUnits, type },
+            data: { userId, amountUnits, type, note, adjustedBy: req.user.id },
         });
 
         res.status(201).json(transaction);

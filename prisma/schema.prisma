@@ -204,6 +204,8 @@ model RideTokenTransaction {
   type        RideTokenTransactionType
   rideId      String?
   createdAt   DateTime                 @default(now())
+  adjustedBy  String?
+  note        String?
 
   ride Ride? @relation(fields: [rideId], references: [id], onDelete: Cascade)
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)

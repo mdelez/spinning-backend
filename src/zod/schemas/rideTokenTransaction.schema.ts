@@ -11,4 +11,5 @@ export const createTokenTransactionSchema = z.object({
         message: "amountUnits must be non-zero",
     }),
     type: z.enum([RideTokenTransactionType.MANUAL_ADJUSTMENT, RideTokenTransactionType.REFUND]),
+    note: z.string().optional(),
 });
