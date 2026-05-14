@@ -3,7 +3,7 @@ import { prisma } from "../prisma.js";
 import { Role } from "@prisma/client";
 import { requireRole } from "../middleware/requireRole.js";
 import { authed } from "../middleware/authed.js";
-import { createTokenTransactionSchema } from "../zod/schemas/rideTokenTransaction.schema.js";
+import { createTokenTransactionSchema, purchaseTokensSchema } from "../zod/schemas/rideTokenTransaction.schema.js";
 
 const router = Router();
 
@@ -63,6 +63,19 @@ router.get(
         res.json({ balance });
     })
 );
+
+// TODO: replace with Stripe webhook once payments are integrated
+// POST /ride-token-transactions/purchase
+router.post("/ride-token-transactions/purchase", authed(async (req, res) => {
+    const { user } = req;
+    const { amountUnits } = purchaseTokensSchema.parse(req.body);
+
+    const transaction = await prisma.rideTokenTransaction.create({
+        data: { userId: user.id, amountUnits, type: "PURCHASE" },
+    });
+
+    res.status(201).json(transaction);
+}));
 
 // POST /ride-token-transactions
 router.post(
