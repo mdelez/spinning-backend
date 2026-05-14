@@ -8,8 +8,7 @@ export const createRideSchema = z.object({
     endAt: z.coerce.date(),
     theme: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
-    rideType: z.enum(RideType),
-    tokenPrice: z.number().min(1)
+    rideType: z.enum(RideType)
 })
 
 export const updateRideSchema = z.object({
@@ -19,6 +18,5 @@ export const updateRideSchema = z.object({
     endAt: z.coerce.date().optional(),
     theme: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
-    rideType: z.enum(RideType).optional(),
-    tokenPrice: z.number().min(0).optional(),
+    rideType: z.enum(RideType).optional()
 });

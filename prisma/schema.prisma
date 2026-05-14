@@ -128,15 +128,15 @@ model Bike {
 }
 
 model Ride {
-  id           String   @id @default(uuid())
-  instructorId String   @map("userId")
-  studioId     String
-  startAt      DateTime
-  endAt        DateTime
-  theme        String?
-  description  String?
-  rideType     RideType @default(NORMAL)
-  tokenPrice   Float    @default(1.0)
+  id              String   @id @default(uuid())
+  instructorId    String   @map("userId")
+  studioId        String
+  startAt         DateTime
+  endAt           DateTime
+  theme           String?
+  description     String?
+  rideType        RideType @default(NORMAL)
+  tokenPriceUnits Int      @default(100)
 
   instructor      User            @relation(fields: [instructorId], references: [id])
   bookings        Booking[]

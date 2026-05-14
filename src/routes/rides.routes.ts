@@ -7,6 +7,12 @@ import { authed } from "../middleware/authed.js";
 
 const router = Router();
 
+const priceMap = {
+    NORMAL: 100,
+    INTRO: 100,
+    EVENT: 200
+};
+
 // GET /rides?instructorId=[uuid]
 router.get("/rides", authed(async (req, res) => {
     try {
@@ -175,7 +181,10 @@ router.post(
             const parsedBody = createRideSchema.parse(req.body);
 
             const newRide = await prisma.ride.create({
-                data: parsedBody,
+                data: {
+                    ...parsedBody,
+                    tokenPriceUnits: priceMap[parsedBody.rideType]
+                },
                 include: {
                     instructor: true
                 }

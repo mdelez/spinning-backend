@@ -1,4 +1,5 @@
 // prisma/seed.ts
+/// <reference types="node" />
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -247,7 +248,7 @@ async function main() {
 
   console.log("✅ Bikes seeded");
 
-  // ----- rideS -----
+  // ----- rides -----
   await prisma.ride.upsert({
     where: { id: UUIDs.rides.normal },
     update: {},
@@ -258,7 +259,7 @@ async function main() {
       startAt: new Date(2026, 7, 9, 19),
       endAt: new Date(2026, 7, 9, 19, 50),
       rideType: "NORMAL",
-      tokenPrice: 1.0
+      tokenPriceUnits: 100
     },
   });
 
@@ -272,7 +273,7 @@ async function main() {
       startAt: new Date(2026, 7, 6, 20),
       endAt: new Date(2026, 7, 6, 20, 50),
       rideType: "INTRO",
-      tokenPrice: 1.0,
+      tokenPriceUnits: 100
     },
   });
 
@@ -286,7 +287,7 @@ async function main() {
       startAt: new Date(2026, 9, 6, 19),
       endAt: new Date(2026, 9, 6, 19, 50),
       rideType: "EVENT",
-      tokenPrice: 2.0
+      tokenPriceUnits: 200
     },
   });
 
@@ -302,7 +303,7 @@ async function main() {
       theme: "90s ride",
       description: "best ride of your life",
       rideType: "NORMAL",
-      tokenPrice: 1.0
+      tokenPriceUnits: 100
     },
   });
 
@@ -318,7 +319,7 @@ async function main() {
       theme: "80s ride",
       description: "ride or die",
       rideType: "NORMAL",
-      tokenPrice: 1.0
+      tokenPriceUnits: 100
     },
   });
 
