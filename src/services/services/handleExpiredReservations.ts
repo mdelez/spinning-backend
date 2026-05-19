@@ -1,38 +1,37 @@
 import { prisma } from "../../prisma.js";
 import { triggerNextWaitlistUser } from "./triggerNextWaitlistUser.js";
 
+const MAX_NOTIFY_COUNT = 2;
+
 export async function handleExpiredReservations() {
     const now = new Date();
-    // console.log('handling expired reservations');
 
     try {
-        // find expired reservations
         const expired = await prisma.waitlistEntry.findMany({
-            where: {
-                status: "NOTIFIED",
-                reservedUntil: {
-                    lt: now,
-                },
-            },
+            where: { status: "NOTIFIED", reservedUntil: { lt: now } },
         });
 
         if (expired.length === 0) return;
 
-        // process each expired reservation
         for (const entry of expired) {
             await prisma.$transaction(async (tx) => {
-                // move user to bottom of queue by setting createdAt to now
-                await tx.waitlistEntry.update({
-                    where: { id: entry.id },
-                    data: {
-                        status: "WAITING",
-                        reservedUntil: null,
-                        notifiedAt: null,
-                        createdAt: new Date(),
-                    },
-                });
+                const newNotifyCount = entry.notifyCount + 1;
 
-                // trigger next user
+                if (newNotifyCount >= MAX_NOTIFY_COUNT) {
+                    await tx.waitlistEntry.delete({ where: { id: entry.id } });
+                } else {
+                    await tx.waitlistEntry.update({
+                        where: { id: entry.id },
+                        data: {
+                            status: "WAITING",
+                            reservedUntil: null,
+                            notifiedAt: null,
+                            notifyCount: newNotifyCount,
+                            createdAt: new Date(),
+                        },
+                    });
+                }
+
                 await triggerNextWaitlistUser(entry.rideId, tx);
             });
         }

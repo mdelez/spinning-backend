@@ -20,3 +20,7 @@ export const updateRideSchema = z.object({
     description: z.string().nullable().optional(),
     rideType: z.enum(RideType).optional()
 });
+
+export const joinWaitlistSchema = z.object({
+    autoBook: z.boolean().default(false),
+});
