@@ -173,6 +173,7 @@ router.get("/users/rides/me", authed(async (req, res) => {
             studioName: b.ride.studio.name,
             status: "BOOKED",
             booking: {
+                bookingId: b.id,
                 bikeNumber: b.bike.bikeNumber,
             },
             waitlist: null,
