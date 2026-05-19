@@ -25,6 +25,13 @@ enum WaitlistStatus {
   NOTIFIED
 }
 
+enum RideTokenTransactionType {
+  PURCHASE
+  BOOKING
+  REFUND
+  MANUAL_ADJUSTMENT
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -39,12 +46,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  bookings          Booking[]
-  rides             Ride[]
-  sessions          Session[]
-  accounts          Account[]
-  waitlistEntries   WaitlistEntry[]
-  instructorProfile InstructorProfile?
+  bookings              Booking[]
+  rides                 Ride[]
+  sessions              Session[]
+  accounts              Account[]
+  waitlistEntries       WaitlistEntry[]
+  instructorProfile     InstructorProfile?
+  rideTokenTransactions RideTokenTransaction[]
 
   @@map("User")
 }
@@ -128,20 +136,21 @@ model Bike {
 }
 
 model Ride {
-  id           String   @id @default(uuid())
-  instructorId String   @map("userId")
-  studioId     String
-  startAt      DateTime
-  endAt        DateTime
-  theme        String?
-  description  String?
-  rideType     RideType @default(NORMAL)
-  tokenPrice   Float    @default(1.0)
+  id              String   @id @default(uuid())
+  instructorId    String   @map("userId")
+  studioId        String
+  startAt         DateTime
+  endAt           DateTime
+  theme           String?
+  description     String?
+  rideType        RideType @default(NORMAL)
+  tokenPriceUnits Int      @default(100)
 
-  instructor      User            @relation(fields: [instructorId], references: [id])
-  bookings        Booking[]
-  studio          Studio          @relation(fields: [studioId], references: [id])
-  waitlistEntries WaitlistEntry[]
+  instructor            User                   @relation(fields: [instructorId], references: [id])
+  bookings              Booking[]
+  studio                Studio                 @relation(fields: [studioId], references: [id])
+  waitlistEntries       WaitlistEntry[]
+  rideTokenTransactions RideTokenTransaction[]
 
   @@map("Ride")
 }
@@ -186,4 +195,18 @@ model WaitlistEntry {
 
   @@unique([rideId, userId])
   @@index([rideId, status, createdAt])
+}
+
+model RideTokenTransaction {
+  id          String                   @id @default(uuid())
+  userId      String
+  amountUnits Int
+  type        RideTokenTransactionType
+  rideId      String?
+  createdAt   DateTime                 @default(now())
+  adjustedBy  String?
+  note        String?
+
+  ride Ride? @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -7,6 +7,12 @@ import { authed } from "../middleware/authed.js";
 
 const router = Router();
 
+const priceMap = {
+    NORMAL: 100,
+    INTRO: 100,
+    EVENT: 200
+};
+
 // GET /rides?instructorId=[uuid]
 router.get("/rides", authed(async (req, res) => {
     try {
@@ -175,7 +181,10 @@ router.post(
             const parsedBody = createRideSchema.parse(req.body);
 
             const newRide = await prisma.ride.create({
-                data: parsedBody,
+                data: {
+                    ...parsedBody,
+                    tokenPriceUnits: priceMap[parsedBody.rideType]
+                },
                 include: {
                     instructor: true
                 }
@@ -206,15 +215,21 @@ router.patch(
         try {
             const parsedBody = updateRideSchema.parse(req.body);
 
-            const updatedride = await prisma.ride.update({
+            const data: Prisma.RideUpdateInput = { ...parsedBody }
+
+            if (parsedBody.rideType) {
+                data.tokenPriceUnits = priceMap[parsedBody.rideType];
+            }
+
+            const updatedRide = await prisma.ride.update({
                 where: { id },
-                data: parsedBody,
+                data,
                 include: {
                     instructor: true
                 }
             });
 
-            res.status(200).json(updatedride);
+            res.status(200).json(updatedRide);
         } catch (error) {
             if (
                 error instanceof Prisma.PrismaClientKnownRequestError &&

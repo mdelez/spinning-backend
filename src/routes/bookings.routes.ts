@@ -5,6 +5,7 @@ import { createBookingSchema, updateBookingSchema, addFriendBookingSchema } from
 import { requireRole } from "../middleware/requireRole.js";
 import { authed } from "../middleware/authed.js";
 import { triggerNextWaitlistUser } from "../services/services/triggerNextWaitlistUser.js";
+import { BookingError } from "../errors/bookingError.js";
 
 const router = Router();
 
@@ -142,7 +143,6 @@ router.post("/bookings", authed(async (req, res) => {
     const { user } = req;
 
     try {
-        // parse and validate input
         const {
             rideId,
             userBikeId,
@@ -159,23 +159,38 @@ router.post("/bookings", authed(async (req, res) => {
 
         const bikesRequested = friendBikeId ? 2 : 1;
 
-        // enforce max 2 bikes
         if (existingCount + bikesRequested > 2) {
             res.status(400).json({ error: "Maximum 2 bikes per ride allowed" });
             return;
         }
 
-        // prevent same bike twice in request
         if (friendBikeId && friendBikeId === userBikeId) {
             res.status(400).json({ error: "Cannot book the same bike twice" });
             return;
         }
 
-        // create bookings in a transaction
+        if (friendBikeId && !friendEmail) {
+            res.status(400).json({ error: "Friend email is required when booking a second bike" });
+            return;
+        }
+
         const bookings = await prisma.$transaction(async (tx) => {
+            const ride = await tx.ride.findUnique({ where: { id: rideId } });
+            if (!ride) throw new BookingError(404, "Ride not found");
+
+            const { _sum } = await tx.rideTokenTransaction.aggregate({
+                where: { userId: user.id },
+                _sum: { amountUnits: true },
+            });
+            const balance = _sum.amountUnits ?? 0;
+            const totalCost = ride.tokenPriceUnits * bikesRequested;
+
+            if (balance < totalCost) {
+                throw new BookingError(402, "Insufficient token balance");
+            }
+
             const created: Prisma.BookingGetPayload<object>[] = [];
 
-            // create user booking
             const userBooking = await tx.booking.create({
                 data: {
                     userId: user.id,
@@ -189,12 +204,16 @@ router.post("/bookings", authed(async (req, res) => {
             });
             created.push(userBooking);
 
-            // create friend booking if provided
-            if (friendBikeId) {
-                if (!friendEmail) {
-                    throw new Error("Invalid friend email address provided");
-                }
+            await tx.rideTokenTransaction.create({
+                data: {
+                    userId: user.id,
+                    rideId,
+                    amountUnits: -ride.tokenPriceUnits,
+                    type: "BOOKING",
+                },
+            });
 
+            if (friendBikeId) {
                 const friendBooking = await tx.booking.create({
                     data: {
                         userId: user.id,
@@ -207,6 +226,15 @@ router.post("/bookings", authed(async (req, res) => {
                     },
                 });
                 created.push(friendBooking);
+
+                await tx.rideTokenTransaction.create({
+                    data: {
+                        userId: user.id,
+                        rideId,
+                        amountUnits: -ride.tokenPriceUnits,
+                        type: "BOOKING",
+                    },
+                });
             }
 
             return created;
@@ -214,17 +242,17 @@ router.post("/bookings", authed(async (req, res) => {
 
         res.status(201).json(bookings);
     } catch (error: unknown) {
-        // bike already booked
+        if (error instanceof BookingError) {
+            console.error(`[BookingError] ${error.statusCode}: ${error.message}`);
+            res.status(error.statusCode).json({ error: error.message });
+            return;
+        }
+
         if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === "P2002"
         ) {
             res.status(400).json({ error: "One of the selected bikes is already booked" });
-            return;
-        }
-
-        if (error instanceof Error && error.message === "Invalid friend email address provided") {
-            res.status(400).json({ error: error.message });
             return;
         }
 
@@ -342,8 +370,10 @@ router.delete("/bookings/:id", authed(async (req, res) => {
     const { id } = req.params as { id: string };
 
     try {
-        // fetch booking first to check ownership
-        const booking = await prisma.booking.findUnique({ where: { id } });
+        const booking = await prisma.booking.findUnique({
+            where: { id },
+            include: { ride: true },
+        });
         if (!booking) {
             res.status(404).json({ error: "Booking not found" });
             return;
@@ -357,11 +387,35 @@ router.delete("/bookings/:id", authed(async (req, res) => {
             return;
         }
 
+        const hoursUntilRide = (booking.ride.startAt.getTime() - Date.now()) / (1000 * 60 * 60);
+        const eligibleForRefund = hoursUntilRide >= 12;
+
+        let refundedUnits: number | null = null;
+
         await prisma.$transaction(async (tx) => {
+            if (eligibleForRefund) {
+                const bookingTransaction = await tx.rideTokenTransaction.findFirst({
+                    where: { userId: booking.userId, rideId: booking.rideId, type: "BOOKING" },
+                });
+
+                if (bookingTransaction) {
+                    refundedUnits = -bookingTransaction.amountUnits;
+                    await tx.rideTokenTransaction.create({
+                        data: {
+                            userId: booking.userId,
+                            rideId: booking.rideId,
+                            amountUnits: refundedUnits,
+                            type: "REFUND",
+                        },
+                    });
+                }
+            }
+
             await tx.booking.delete({ where: { id } });
             await triggerNextWaitlistUser(booking.rideId, tx);
         });
-        res.status(204).send(); // no content
+
+        res.json({ refunded: refundedUnits !== null, refundedUnits });
     } catch (error: unknown) {
         console.error(error);
         res.status(500).json({ error: "Failed to delete booking" });
