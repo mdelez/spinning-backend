@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../prisma.js";
 import { Prisma, Role } from "@prisma/client";
-import { createRideSchema, updateRideSchema } from "../zod/schemas/ride.schema.js";
+import { createRideSchema, joinWaitlistSchema, updateRideSchema } from "../zod/schemas/ride.schema.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { authed } from "../middleware/authed.js";
 
@@ -17,6 +17,7 @@ const priceMap = {
 router.get("/rides", authed(async (req, res) => {
     try {
         const { instructorId } = req.query;
+        const now = new Date();
 
         const rides = await prisma.ride.findMany({
             where: instructorId
@@ -40,13 +41,17 @@ router.get("/rides", authed(async (req, res) => {
                 _count: {
                     select: { bookings: true },
                 },
+                waitlistEntries: {
+                    where: { status: "NOTIFIED", reservedUntil: { gt: now } },
+                    select: { id: true },
+                },
             },
         });
 
-        const ridesWithAvailability = rides.map(ride => ({
+        const ridesWithAvailability = rides.map(({ waitlistEntries, ...ride }) => ({
             ...ride,
             availableSpots:
-                ride.studio._count.bikes - ride._count.bookings,
+                ride.studio._count.bikes - ride._count.bookings - waitlistEntries.length,
         }));
 
         res.json(ridesWithAvailability);
@@ -60,6 +65,7 @@ router.get("/rides", authed(async (req, res) => {
 router.get("/rides/:id", authed(async (req, res) => {
     const { id } = req.params as { id: string };
     try {
+        const now = new Date();
         const ride = await prisma.ride.findUnique({
             where: { id },
             include: {
@@ -70,11 +76,24 @@ router.get("/rides/:id", authed(async (req, res) => {
                         lastName: true,
                     }
                 },
-                studio: true,
+                studio: {
+                    include: {
+                        _count: { select: { bikes: true } },
+                    },
+                },
+                _count: { select: { bookings: true } },
+                waitlistEntries: {
+                    where: { status: "NOTIFIED", reservedUntil: { gt: now } },
+                    select: { id: true },
+                },
             },
         });
         if (ride) {
-            res.json(ride);
+            const { waitlistEntries, ...rest } = ride;
+            res.json({
+                ...rest,
+                availableSpots: ride.studio._count.bikes - ride._count.bookings - waitlistEntries.length,
+            });
         } else {
             res.status(404).json({ error: "Ride not found" });
         }
@@ -275,25 +294,46 @@ router.post(
     authed(async (req, res) => {
         const { id } = req.params as { id: string };
         const userId = req.user.id;
+        const { autoBook } = joinWaitlistSchema.parse(req.body);
 
         try {
             const existingBooking = await prisma.booking.findFirst({
-                where: { id, userId }
-            })
+                where: { rideId: id, userId },
+            });
 
             if (existingBooking) {
-                res.status(400).json({
-                    error: "You already have a booking for this ride"
-                });
+                res.status(400).json({ error: "You already have a booking for this ride" });
+                return;
+            }
+
+            const ride = await prisma.ride.findUnique({
+                where: { id },
+                include: {
+                    studio: { select: { bikes: { select: { id: true } } } },
+                    _count: { select: { bookings: true } },
+                },
+            });
+
+            if (!ride) {
+                res.status(404).json({ error: "Ride not found" });
+                return;
+            }
+
+            const now = new Date();
+            const notifiedCount = await prisma.waitlistEntry.count({
+                where: { rideId: id, status: "NOTIFIED", reservedUntil: { gt: now } },
+            });
+
+            const openSlots = ride.studio.bikes.length - ride._count.bookings - notifiedCount;
+
+            if (openSlots > 0) {
+                res.status(400).json({ error: "Spots are still available, please book directly" });
                 return;
             }
 
             const entry = await prisma.waitlistEntry.create({
-                data: {
-                    rideId: id,
-                    userId
-                }
-            })
+                data: { rideId: id, userId, autoBook },
+            });
 
             res.status(201).json(entry);
         } catch (error) {
@@ -301,9 +341,7 @@ router.post(
                 error instanceof Prisma.PrismaClientKnownRequestError &&
                 error.code === "P2002"
             ) {
-                res.status(400).json({
-                    error: "You are already on the waitlist",
-                });
+                res.status(400).json({ error: "You are already on the waitlist" });
                 return;
             }
 
@@ -385,6 +423,7 @@ router.get(
                 status: entry.status,
                 position: entry.status === "WAITING" ? position + 1 : null,
                 reservedUntil: entry.reservedUntil,
+                autoBook: entry.autoBook
             });
         } catch (error) {
             console.error(error);

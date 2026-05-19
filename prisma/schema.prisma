@@ -189,6 +189,8 @@ model WaitlistEntry {
   status        WaitlistStatus @default(WAITING)
   reservedUntil DateTime?
   notifiedAt    DateTime?
+  notifyCount   Int            @default(0)
+  autoBook      Boolean        @default(false)
 
   ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -178,6 +178,34 @@ router.post("/bookings", authed(async (req, res) => {
             const ride = await tx.ride.findUnique({ where: { id: rideId } });
             if (!ride) throw new BookingError(404, "Ride not found");
 
+            const now = new Date();
+            const [totalBikes, currentBookingCount, notifiedCount, myWaitlistEntry] = await Promise.all([
+                tx.bike.count({ where: { studioId: ride.studioId } }),
+                tx.booking.count({ where: { rideId } }),
+                tx.waitlistEntry.count({
+                    where: { rideId, status: "NOTIFIED", reservedUntil: { gt: now } },
+                }),
+                tx.waitlistEntry.findUnique({
+                    where: { rideId_userId: { rideId, userId: user.id } },
+                }),
+            ]);
+
+            const hasActiveReservation =
+                myWaitlistEntry?.status === "NOTIFIED" &&
+                myWaitlistEntry.reservedUntil != null &&
+                myWaitlistEntry.reservedUntil > now;
+
+            const openSlots =
+                totalBikes - currentBookingCount - notifiedCount + (hasActiveReservation ? 1 : 0);
+
+            if (openSlots < bikesRequested) {
+                throw new BookingError(409, "No available spots for this ride");
+            }
+
+            if (myWaitlistEntry) {
+                await tx.waitlistEntry.delete({ where: { id: myWaitlistEntry.id } });
+            }
+
             const { _sum } = await tx.rideTokenTransaction.aggregate({
                 where: { userId: user.id },
                 _sum: { amountUnits: true },
@@ -333,9 +361,24 @@ router.post("/bookings/add-friend", authed(async (req, res) => {
             return;
         }
 
-        // create friend booking in a transaction
-        const [friendBooking] = await prisma.$transaction([
-            prisma.booking.create({
+        const friendBooking = await prisma.$transaction(async (tx) => {
+            const ride = await tx.ride.findUnique({ where: { id: rideId }, select: { studioId: true } });
+            if (!ride) throw new BookingError(404, "Ride not found");
+
+            const now = new Date();
+            const [totalBikes, bookingCount, notifiedCount] = await Promise.all([
+                tx.bike.count({ where: { studioId: ride.studioId } }),
+                tx.booking.count({ where: { rideId } }),
+                tx.waitlistEntry.count({
+                    where: { rideId, status: "NOTIFIED", reservedUntil: { gt: now } },
+                }),
+            ]);
+
+            if (totalBikes - bookingCount - notifiedCount < 1) {
+                throw new BookingError(409, "No available spots for this ride");
+            }
+
+            return tx.booking.create({
                 data: {
                     userId: user.id,
                     rideId,
@@ -345,8 +388,8 @@ router.post("/bookings/add-friend", authed(async (req, res) => {
                     friendWaiverSigned: false,
                     paid: false,
                 },
-            }),
-        ]);
+            });
+        });
 
         res.status(201).json(friendBooking);
     } catch (error: unknown) {
